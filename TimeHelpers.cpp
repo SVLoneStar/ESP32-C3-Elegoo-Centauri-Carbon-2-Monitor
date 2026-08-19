@@ -1,4 +1,5 @@
 #include "TimeHelpers.h"
+#include "Config.h"
 
 // NTP
 // ============================================================
@@ -6,7 +7,7 @@
 void startNTP()
 {
   configTzTime(
-    "CET-1CEST,M3.5.0,M10.5.0/3",
+    appConfig.timezone,
     "pool.ntp.org",
     "time.nist.gov"
   );

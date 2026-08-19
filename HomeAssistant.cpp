@@ -1,4 +1,5 @@
 #include "HomeAssistant.h"
+#include "Config.h"
 #include "PrinterData.h"
 
 // REST URL
@@ -13,7 +14,7 @@ String buildRestURL(
 
 
   url +=
-    HA_IP;
+    appConfig.homeAssistantHost;
 
 
   url +=
@@ -22,7 +23,7 @@ String buildRestURL(
 
   url +=
     String(
-      HA_PORT
+      appConfig.homeAssistantPort
     );
 
 
@@ -84,7 +85,7 @@ void loadInitialEntity(
   http.addHeader(
     "Authorization",
     String("Bearer ") +
-    HA_TOKEN
+    appConfig.homeAssistantToken
   );
 
 
@@ -198,6 +199,12 @@ void loadInitialEntity(
 
 void loadInitialPrinterData()
 {
+  if (!hasValidHomeAssistantConfig(appConfig))
+  {
+    Serial.println("Home Assistant configuration is incomplete.");
+    return;
+  }
+
   Serial.println();
   Serial.println(
     "Loading initial printer states..."
@@ -296,7 +303,7 @@ void sendAuth()
 
 
   message +=
-    HA_TOKEN;
+    appConfig.homeAssistantToken;
 
 
   message +=
@@ -980,7 +987,7 @@ String buildWebSocketURL()
 
 
   url +=
-    HA_IP;
+    appConfig.homeAssistantHost;
 
 
   url +=
@@ -989,7 +996,7 @@ String buildWebSocketURL()
 
   url +=
     String(
-      HA_PORT
+      appConfig.homeAssistantPort
     );
 
 
@@ -1007,6 +1014,12 @@ String buildWebSocketURL()
 
 bool tryWebSocketConnect()
 {
+  if (!hasValidHomeAssistantConfig(appConfig))
+  {
+    resetWebSocketState();
+    return false;
+  }
+
   if (
     WiFi.status() !=
     WL_CONNECTED

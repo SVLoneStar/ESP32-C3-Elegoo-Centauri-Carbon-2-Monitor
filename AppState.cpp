@@ -10,16 +10,6 @@ const char* WIFI_PASSWORD =
   "Afew$more4wlan";
 
 
-const char* HA_IP =
-  "192.0.2.1";
-
-extern const uint16_t HA_PORT =
-  8123;
-
-const char* HA_TOKEN =
-  "";
-
-
 // ============================================================
 // HOME ASSISTANT ENTITIES
 // ============================================================
@@ -230,6 +220,9 @@ bool idleConnectionDirty =
 bool idleDiagnosticsDirty =
   true;
 
+bool idleWeatherDirty =
+  true;
+
 
 // ============================================================
 // DISPLAY CACHE
@@ -274,6 +267,3 @@ unsigned long lastIdleDiagnosticMinute =
 
 bool showETA =
   true;
-
-extern const unsigned long TIME_PAGE_MS =
-  5000;

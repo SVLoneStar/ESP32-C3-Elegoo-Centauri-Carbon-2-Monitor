@@ -13,6 +13,9 @@
 #include "TimeHelpers.h"
 #include "Display.h"
 #include "HomeAssistant.h"
+#include "Weather.h"
+#include "ConfigStore.h"
+#include "WebUI.h"
 
 // SETUP
 // ============================================================
@@ -35,7 +38,16 @@ void setup()
   printResetReason();
 
 
+  initializeConfigStore();
+
+
+  initializeWebUI();
+
+
   initializePrinter();
+
+
+  initializeWeather();
 
 
   // ----------------------------------------------------------
@@ -129,6 +141,9 @@ void loop()
 
 
   maintainWebSocket();
+
+
+  maintainWeather();
 
 
   if (

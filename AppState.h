@@ -22,9 +22,6 @@ using namespace websockets;
 
 extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
-extern const char* HA_IP;
-extern const uint16_t HA_PORT;
-extern const char* HA_TOKEN;
 
 extern const char* ENTITY_REMAINING;
 extern const char* ENTITY_TOTAL_LAYERS;
@@ -107,6 +104,7 @@ extern bool bedDirty;
 extern bool chamberDirty;
 extern bool idleConnectionDirty;
 extern bool idleDiagnosticsDirty;
+extern bool idleWeatherDirty;
 extern String lastShownClock;
 extern String lastShownDate;
 extern bool lastShownWifi;
@@ -117,4 +115,3 @@ extern unsigned long lastTimePageSwitch;
 extern unsigned long lastSerialStatus;
 extern unsigned long lastIdleDiagnosticMinute;
 extern bool showETA;
-extern const unsigned long TIME_PAGE_MS;

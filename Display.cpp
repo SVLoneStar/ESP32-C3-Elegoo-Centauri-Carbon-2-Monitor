@@ -1,7 +1,9 @@
 #include "Display.h"
 #include "Diagnostics.h"
+#include "Config.h"
 #include "PrinterData.h"
 #include "TimeHelpers.h"
+#include "Weather.h"
 
 // CENTER TEXT
 // ============================================================
@@ -482,8 +484,8 @@ void drawIdleLayout()
 
   drawCenteredText(
     "PRINTER IDLE",
-    68,
-    &FreeSansBold18pt7b,
+    54,
+    &FreeSansBold12pt7b,
     C_CYAN
   );
 
@@ -506,6 +508,9 @@ void drawIdleLayout()
 
   idleDiagnosticsDirty =
     true;
+
+
+  markWeatherDirty();
 
 
   lastIdleDiagnosticMinute =
@@ -1019,16 +1024,16 @@ void updateIdleDate()
 
   tft.fillRect(
     0,
-    75,
+    56,
     320,
-    37,
+    24,
     C_BG
   );
 
 
   drawCenteredText(
     date,
-    101,
+    76,
     &FreeSans9pt7b,
     C_TEXT
   );
@@ -1365,15 +1370,6 @@ void updateDisplay()
   )
   {
     updateHeaderClock();
-
-
-    if (
-      currentDisplayMode ==
-      MODE_IDLE
-    )
-    {
-      updateIdleLargeClock();
-    }
   }
 
 
@@ -1389,7 +1385,7 @@ void updateDisplay()
     if (
       millis() -
         lastTimePageSwitch >=
-        TIME_PAGE_MS
+        appConfig.etaRemainingSwitchIntervalMs
     )
     {
       lastTimePageSwitch =
@@ -1493,6 +1489,14 @@ void updateDisplay()
   )
   {
     updateIdleDate();
+  }
+
+
+  if (
+    weatherNeedsRedraw()
+  )
+  {
+    drawWeatherFields();
   }
 
 
