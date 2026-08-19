@@ -1,6 +1,13 @@
 #include "HomeAssistant.h"
 #include "Config.h"
 #include "PrinterData.h"
+#include <WiFiManager.h>
+
+namespace
+{
+volatile bool wifiProvisioningActive =
+  false;
+}
 
 // REST URL
 // ============================================================
@@ -823,49 +830,30 @@ bool connectWiFi()
     WIFI_STA
   );
 
-
-  WiFi.begin(
-    WIFI_SSID,
-    WIFI_PASSWORD
-  );
-
-
   Serial.print(
     "Connecting WiFi"
   );
 
+  WiFiManager wifiManager;
 
-  unsigned long start =
-    millis();
+  wifiManager.setConnectTimeout(20);
+  wifiManager.setSaveConnectTimeout(20);
+  wifiManager.setConfigPortalTimeout(300);
 
+  wifiProvisioningActive =
+    true;
 
-  while (
-    WiFi.status() !=
-      WL_CONNECTED &&
-    millis() -
-      start <
-      20000
-  )
-  {
-    delay(
-      250
+  bool connected =
+    wifiManager.autoConnect(
+      "Elegoo-Monitor-Setup"
     );
 
+  wifiProvisioningActive =
+    false;
 
-    Serial.print(
-      "."
-    );
-  }
-
-
-  Serial.println();
-
-
-  if (
-    WiFi.status() !=
-    WL_CONNECTED
-  )
+  if (!connected)
   {
+    Serial.println();
     Serial.println(
       "*** WIFI CONNECT FAILED ***"
     );
@@ -969,10 +957,24 @@ void maintainWiFi()
   );
 
 
-  WiFi.begin(
-    WIFI_SSID,
-    WIFI_PASSWORD
-  );
+  WiFi.reconnect();
+}
+
+
+// ============================================================
+// WIFI PROVISIONING STATE / RESET
+// ============================================================
+
+void clearStoredWiFiCredentials()
+{
+  WiFiManager wifiManager;
+  wifiManager.resetSettings();
+}
+
+
+bool isWiFiProvisioningActive()
+{
+  return wifiProvisioningActive;
 }
 
 

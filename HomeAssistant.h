@@ -12,6 +12,8 @@ void onMessageCallback(WebsocketsClient& wsClient, WebsocketsMessage message);
 void onEventCallback(WebsocketsEvent event, String data);
 bool connectWiFi();
 void maintainWiFi();
+void clearStoredWiFiCredentials();
+bool isWiFiProvisioningActive();
 String buildWebSocketURL();
 bool tryWebSocketConnect();
 void maintainWebSocket();

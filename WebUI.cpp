@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "ConfigStore.h"
 #include "Diagnostics.h"
+#include "HomeAssistant.h"
 #include "Weather.h"
 
 #include <ESPmDNS.h>
@@ -297,7 +298,24 @@ void showMaintenance(
                  "<section><h2>Clear application configuration</h2>"
                  "<p>This restores compiled defaults on the next boot.</p>"
                  "<form method='post' action='/clear-configuration'>"
-                 "<button type='submit'>Clear configuration</button></form></section>"));
+                 "<button type='submit'>Clear configuration</button></form></section>"
+                 "<section><h2>Reset WiFi credentials</h2>"
+                 "<p>This erases only stored WiFi credentials. Home Assistant and other application configuration remain unchanged.</p>"
+                 "<a href='/reset-wifi-confirm'>Review WiFi reset</a></section>"));
+  pageEnd(client);
+}
+
+void showWiFiResetConfirmation(
+  WiFiClient& client
+)
+{
+  sendHeader(client, 200, "OK");
+  pageStart(client, "Confirm WiFi reset");
+  client.print(F("<section><p class='note'>This will disconnect the device, erase its stored WiFi credentials, and restart it into the Elegoo-Monitor-Setup captive portal.</p>"
+                 "<p>Home Assistant and all other LittleFS application configuration will be preserved.</p>"
+                 "<form method='post' action='/reset-wifi'>"
+                 "<button type='submit'>Confirm WiFi reset</button></form>"
+                 "<p><a href='/maintenance'>Cancel</a></p></section>"));
   pageEnd(client);
 }
 
@@ -373,6 +391,8 @@ void handleRequest(
     saveConfigurationForm(client, body);
   else if (method == "GET" && path == "/maintenance")
     showMaintenance(client);
+  else if (method == "GET" && path == "/reset-wifi-confirm")
+    showWiFiResetConfirmation(client);
   else if (method == "POST" && path == "/restart")
   {
     simplePage(client, 200, "Restarting", "The device is restarting.");
@@ -399,6 +419,19 @@ void handleRequest(
       ESP.restart();
     }
   }
+  else if (method == "POST" && path == "/reset-wifi")
+  {
+    simplePage(
+      client,
+      200,
+      "WiFi credentials cleared",
+      "Stored WiFi credentials were cleared. The device is restarting into captive-portal setup mode."
+    );
+    client.flush();
+    delay(250);
+    clearStoredWiFiCredentials();
+    ESP.restart();
+  }
   else
   {
     sendHeader(client, 404, "Not Found", "text/plain");
@@ -412,7 +445,11 @@ void webUITask(
 {
   while (true)
   {
-    if (!serverStarted && WiFi.status() == WL_CONNECTED)
+    if (
+      !serverStarted &&
+      !isWiFiProvisioningActive() &&
+      WiFi.status() == WL_CONNECTED
+    )
     {
       server.begin();
       serverStarted = true;

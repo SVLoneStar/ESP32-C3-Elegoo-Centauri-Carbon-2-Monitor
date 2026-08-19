@@ -20,9 +20,6 @@
 
 using namespace websockets;
 
-extern const char* WIFI_SSID;
-extern const char* WIFI_PASSWORD;
-
 extern const char* ENTITY_REMAINING;
 extern const char* ENTITY_TOTAL_LAYERS;
 extern const char* ENTITY_CURRENT_LAYER;

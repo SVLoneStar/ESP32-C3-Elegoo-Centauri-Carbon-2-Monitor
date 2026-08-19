@@ -1,15 +1,5 @@
 #include "AppState.h"
 
-// USER CONFIG
-// ============================================================
-
-const char* WIFI_SSID =
-  "Wlan4Mi0nly102";
-
-const char* WIFI_PASSWORD =
-  "Afew$more4wlan";
-
-
 // ============================================================
 // HOME ASSISTANT ENTITIES
 // ============================================================
