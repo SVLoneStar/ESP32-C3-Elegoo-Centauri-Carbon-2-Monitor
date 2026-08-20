@@ -4,137 +4,70 @@
 // NTP
 // ============================================================
 
-void startNTP()
-{
-  configTzTime(
-    appConfig.timezone,
-    "pool.ntp.org",
-    "time.nist.gov"
-  );
+void startNTP() {
+    configTzTime(appConfig.timezone, "pool.ntp.org", "time.nist.gov");
 }
-
 
 // ============================================================
 // CLOCK
 // ============================================================
 
-String getClock()
-{
-  time_t now =
-    time(nullptr);
+String getClock() {
+    time_t now = time(nullptr);
 
+    if (now < 1000000000UL)
+        return "--:--";
 
-  if (now < 1000000000UL)
-    return "--:--";
+    struct tm t;
 
+    if (!localtime_r(&now, &t)) {
+        return "--:--";
+    }
 
-  struct tm t;
+    char buffer[6];
 
+    snprintf(buffer, sizeof(buffer), "%02d:%02d", t.tm_hour, t.tm_min);
 
-  if (!localtime_r(
-        &now,
-        &t
-      ))
-  {
-    return "--:--";
-  }
-
-
-  char buffer[6];
-
-
-  snprintf(
-    buffer,
-    sizeof(buffer),
-    "%02d:%02d",
-    t.tm_hour,
-    t.tm_min
-  );
-
-
-  return String(buffer);
+    return String(buffer);
 }
-
 
 // ============================================================
 // DATE
 // ============================================================
 
-String getLongDate()
-{
-  time_t now =
-    time(nullptr);
+String getLongDate() {
+    time_t now = time(nullptr);
 
+    if (now < 1000000000UL)
+        return "Date not synchronized";
 
-  if (now < 1000000000UL)
-    return "Date not synchronized";
+    struct tm t;
 
+    if (!localtime_r(&now, &t)) {
+        return "Invalid date";
+    }
 
-  struct tm t;
+    const char* weekdays[] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
+                              "Thursday", "Friday", "Saturday"};
 
+    const char* months[] = {"January", "February", "March",     "April",   "May",      "June",
+                            "July",    "August",   "September", "October", "November", "December"};
 
-  if (!localtime_r(
-        &now,
-        &t
-      ))
-  {
-    return "Invalid date";
-  }
+    String result;
 
+    result += weekdays[t.tm_wday];
 
-  const char* weekdays[] =
-  {
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday"
-  };
+    result += ", ";
 
+    result += months[t.tm_mon];
 
-  const char* months[] =
-  {
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December"
-  };
+    result += " ";
 
+    result += String(t.tm_mday);
 
-  String result;
+    result += ", ";
 
+    result += String(t.tm_year + 1900);
 
-  result +=
-    weekdays[t.tm_wday];
-
-  result +=
-    ", ";
-
-  result +=
-    months[t.tm_mon];
-
-  result +=
-    " ";
-
-  result +=
-    String(t.tm_mday);
-
-  result +=
-    ", ";
-
-  result +=
-    String(t.tm_year + 1900);
-
-
-  return result;
+    return result;
 }

@@ -1,10 +1,13 @@
 /*
   ==============================================================
-  Elegoo Centauri Carbon 2 Printer Monitor
+  Elegoo Centauri Carbon 2
+ * Printer Monitor
   ESP32-C3 SuperMini + ILI9341 320x240
-  ==============================================================
 
-  Behavior-preserving Arduino IDE multi-file version.
+ * ==============================================================
+
+  Behavior-preserving Arduino IDE
+ * multi-file version.
 */
 
 #include "AppState.h"
@@ -16,165 +19,151 @@
 #include "Weather.h"
 #include "ConfigStore.h"
 #include "WebUI.h"
+#include "StateTrace.h"
 
 // SETUP
 // ============================================================
 
-void setup()
-{
-  Serial.begin(
-    115200
-  );
+void setup() {
+    unsigned long callStarted;
 
+    Serial.begin(115200);
+#if ARDUINO_USB_CDC_ON_BOOT
+    Serial.setTxTimeoutMs(0);
+#endif
 
-  delay(
-    1200
-  );
+    callStarted = millis();
+    initBootCounter();
+    recordBlockingCall("initBootCounter", millis() - callStarted);
 
+    callStarted = millis();
+    printResetReason();
+    recordBlockingCall("printResetReason", millis() - callStarted);
 
-  initBootCounter();
+    callStarted = millis();
+    initializeConfigStore();
+    recordBlockingCall("initializeConfigStore", millis() - callStarted);
 
+    callStarted = millis();
+    initializePrinterEntityIds();
+    recordBlockingCall("initializePrinterEntityIds", millis() - callStarted);
 
-  printResetReason();
+    callStarted = millis();
+    initializeStateTrace();
+    recordBlockingCall("initializeStateTrace", millis() - callStarted);
 
+    callStarted = millis();
+    stateTraceLogBoot(bootCount, resetReasonText(lastResetReason));
+    recordBlockingCall("stateTraceLogBoot", millis() - callStarted);
 
-  initializeConfigStore();
+    callStarted = millis();
+    initializeWebUI();
+    recordBlockingCall("initializeWebUI", millis() - callStarted);
 
+    callStarted = millis();
+    initializePrinter();
+    recordBlockingCall("initializePrinter", millis() - callStarted);
 
-  initializeWebUI();
+    callStarted = millis();
+    initializeWeather();
+    recordBlockingCall("initializeWeather", millis() - callStarted);
 
+    // ----------------------------------------------------------
+    // TFT
+    // ----------------------------------------------------------
 
-  initializePrinter();
+    callStarted = millis();
+    tftSPI.begin(TFT_SCK, -1, TFT_MOSI, TFT_CS);
 
+    tft.begin();
 
-  initializeWeather();
+    tft.setRotation(3);
 
+    tft.setTextWrap(false);
 
-  // ----------------------------------------------------------
-  // TFT
-  // ----------------------------------------------------------
+    tft.fillScreen(C_BG);
+    recordBlockingCall("initializeTFT", millis() - callStarted);
 
-  tftSPI.begin(
-    TFT_SCK,
-    -1,
-    TFT_MOSI,
-    TFT_CS
-  );
+    // ----------------------------------------------------------
+    // CALLBACKS
+    // ----------------------------------------------------------
 
+    client.onMessage(onMessageCallback);
 
-  tft.begin();
+    client.onEvent(onEventCallback);
 
+    // ----------------------------------------------------------
+    // WIFI + INITIAL STATES
+    // ----------------------------------------------------------
 
-  tft.setRotation(
-    3
-  );
+    callStarted = millis();
+    bool wifiConnected = connectWiFi();
+    recordBlockingCall("connectWiFi", millis() - callStarted);
 
+    if (wifiConnected) {
+        callStarted = millis();
+        startNTP();
+        recordBlockingCall("startNTP", millis() - callStarted);
 
-  tft.setTextWrap(
-    false
-  );
+        callStarted = millis();
+        loadInitialPrinterData();
+        recordBlockingCall("loadInitialPrinterData", millis() - callStarted);
+    }
 
+    // ----------------------------------------------------------
+    // WS START
+    // ----------------------------------------------------------
 
-  tft.fillScreen(
-    C_BG
-  );
+    lastReconnectAttempt = millis() - reconnectDelayMs;
 
+    lastTimePageSwitch = millis();
 
-  // ----------------------------------------------------------
-  // CALLBACKS
-  // ----------------------------------------------------------
+    currentDisplayMode = MODE_UNKNOWN;
 
-  client.onMessage(
-    onMessageCallback
-  );
-
-
-  client.onEvent(
-    onEventCallback
-  );
-
-
-  // ----------------------------------------------------------
-  // WIFI + INITIAL STATES
-  // ----------------------------------------------------------
-
-  if (
-    connectWiFi()
-  )
-  {
-    startNTP();
-
-
-    loadInitialPrinterData();
-  }
-
-
-  // ----------------------------------------------------------
-  // WS START
-  // ----------------------------------------------------------
-
-  lastReconnectAttempt =
-    millis() -
-    reconnectDelayMs;
-
-
-  lastTimePageSwitch =
-    millis();
-
-
-  currentDisplayMode =
-    MODE_UNKNOWN;
-
-
-  fullRedrawNeeded =
-    true;
+    fullRedrawNeeded = true;
 }
-
 
 // ============================================================
 // LOOP
 // ============================================================
 
-void loop()
-{
-  maintainWiFi();
+void loop() {
+    unsigned long loopStarted = millis();
+    unsigned long callStarted = millis();
 
+    maintainWiFi();
+    recordBlockingCall("maintainWiFi", millis() - callStarted);
 
-  maintainWebSocket();
+    callStarted = millis();
+    maintainWebSocket();
+    recordBlockingCall("maintainWebSocket", millis() - callStarted);
 
+    callStarted = millis();
+    updatePrinterStateMachine();
+    recordBlockingCall("updatePrinterStateMachine", millis() - callStarted);
 
-  maintainWeather();
+    callStarted = millis();
+    maintainWeather();
+    recordBlockingCall("maintainWeather", millis() - callStarted);
 
+    if (millis() - lastDisplayUpdate >= 100) {
+        lastDisplayUpdate = millis();
 
-  if (
-    millis() -
-      lastDisplayUpdate >=
-      100
-  )
-  {
-    lastDisplayUpdate =
-      millis();
+        callStarted = millis();
+        updateDisplay();
+        recordBlockingCall("updateDisplay", millis() - callStarted);
+    }
 
+    if (millis() - lastSerialStatus >= 10000) {
+        lastSerialStatus = millis();
 
-    updateDisplay();
-  }
+        callStarted = millis();
+        printStatus();
+        recordBlockingCall("printStatus", millis() - callStarted);
+    }
 
-
-  if (
-    millis() -
-      lastSerialStatus >=
-      10000
-  )
-  {
-    lastSerialStatus =
-      millis();
-
-
-    printStatus();
-  }
-
-
-  delay(
-    1
-  );
+    delay(1);
+    unsigned long loopElapsed = millis() - loopStarted;
+    recordLoopDuration(loopElapsed);
+    recordBlockingCall("loop", loopElapsed);
 }

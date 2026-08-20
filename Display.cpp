@@ -3,1515 +3,865 @@
 #include "Config.h"
 #include "PrinterData.h"
 #include "TimeHelpers.h"
+#include "Version.h"
 #include "Weather.h"
 
 // CENTER TEXT
 // ============================================================
 
-void drawCenteredText(
-  const String& text,
-  int baselineY,
-  const GFXfont* font,
-  uint16_t color
-)
-{
-  tft.setFont(
-    font
-  );
+void drawCenteredText(const String& text, int baselineY, const GFXfont* font, uint16_t color) {
+    tft.setFont(font);
 
+    tft.setTextColor(color);
 
-  tft.setTextColor(
-    color
-  );
+    int16_t x1;
+    int16_t y1;
 
+    uint16_t w;
+    uint16_t h;
 
-  int16_t x1;
-  int16_t y1;
+    tft.getTextBounds(text, 0, baselineY, &x1, &y1, &w, &h);
 
-  uint16_t w;
-  uint16_t h;
+    int x = (320 - w) / 2;
 
+    if (x < 0)
+        x = 0;
 
-  tft.getTextBounds(
-    text,
-    0,
-    baselineY,
-    &x1,
-    &y1,
-    &w,
-    &h
-  );
+    tft.setCursor(x, baselineY);
 
-
-  int x =
-    (
-      320 -
-      w
-    ) /
-    2;
-
-
-  if (x < 0)
-    x = 0;
-
-
-  tft.setCursor(
-    x,
-    baselineY
-  );
-
-
-  tft.print(
-    text
-  );
-
+    tft.print(text);
 }
 
 // ICONS
 // ============================================================
 
-void drawNozzleIcon(
-  int x,
-  int y,
-  uint16_t color
-)
-{
-  tft.fillRoundRect(
-    x + 4,
-    y,
-    16,
-    8,
-    2,
-    color
-  );
+void drawNozzleIcon(int x, int y, uint16_t color) {
+    tft.fillRoundRect(x + 4, y, 16, 8, 2, color);
 
+    tft.fillRect(x + 8, y + 8, 8, 4, color);
 
-  tft.fillRect(
-    x + 8,
-    y + 8,
-    8,
-    4,
-    color
-  );
+    tft.fillTriangle(x + 6, y + 12, x + 18, y + 12, x + 12, y + 21, color);
 
-
-  tft.fillTriangle(
-    x + 6,
-    y + 12,
-    x + 18,
-    y + 12,
-    x + 12,
-    y + 21,
-    color
-  );
-
-
-  tft.drawFastVLine(
-    x + 12,
-    y + 21,
-    2,
-    color
-  );
+    tft.drawFastVLine(x + 12, y + 21, 2, color);
 }
 
+void drawBedIcon(int x, int y, uint16_t color) {
+    tft.fillRoundRect(x, y + 11, 26, 5, 2, color);
 
-void drawBedIcon(
-  int x,
-  int y,
-  uint16_t color
-)
-{
-  tft.fillRoundRect(
-    x,
-    y + 11,
-    26,
-    5,
-    2,
-    color
-  );
+    tft.drawFastHLine(x + 3, y + 19, 20, color);
 
+    tft.drawFastVLine(x + 5, y + 16, 6, color);
 
-  tft.drawFastHLine(
-    x + 3,
-    y + 19,
-    20,
-    color
-  );
+    tft.drawFastVLine(x + 21, y + 16, 6, color);
 
+    tft.drawLine(x + 5, y + 7, x + 8, y + 2, color);
 
-  tft.drawFastVLine(
-    x + 5,
-    y + 16,
-    6,
-    color
-  );
+    tft.drawLine(x + 12, y + 7, x + 15, y + 2, color);
 
-
-  tft.drawFastVLine(
-    x + 21,
-    y + 16,
-    6,
-    color
-  );
-
-
-  tft.drawLine(
-    x + 5,
-    y + 7,
-    x + 8,
-    y + 2,
-    color
-  );
-
-
-  tft.drawLine(
-    x + 12,
-    y + 7,
-    x + 15,
-    y + 2,
-    color
-  );
-
-
-  tft.drawLine(
-    x + 19,
-    y + 7,
-    x + 22,
-    y + 2,
-    color
-  );
+    tft.drawLine(x + 19, y + 7, x + 22, y + 2, color);
 }
 
+void drawChamberIcon(int x, int y, uint16_t color) {
+    tft.drawRoundRect(x + 2, y, 24, 24, 3, color);
 
-void drawChamberIcon(
-  int x,
-  int y,
-  uint16_t color
-)
-{
-  tft.drawRoundRect(
-    x + 2,
-    y,
-    24,
-    24,
-    3,
-    color
-  );
+    tft.drawCircle(x + 14, y + 15, 3, color);
 
+    tft.fillCircle(x + 14, y + 15, 1, color);
 
-  tft.drawCircle(
-    x + 14,
-    y + 15,
-    3,
-    color
-  );
+    tft.drawFastVLine(x + 14, y + 6, 8, color);
 
-
-  tft.fillCircle(
-    x + 14,
-    y + 15,
-    1,
-    color
-  );
-
-
-  tft.drawFastVLine(
-    x + 14,
-    y + 6,
-    8,
-    color
-  );
-
-
-  tft.drawFastHLine(
-    x + 6,
-    y + 20,
-    16,
-    color
-  );
+    tft.drawFastHLine(x + 6, y + 20, 16, color);
 }
-
 
 // ============================================================
 // STATIC HEADER
 // ============================================================
 
-void drawStaticHeader()
-{
-  tft.setFont(
-    &FreeSansBold9pt7b
-  );
+void drawStaticHeader() {
+    tft.setFont(&FreeSansBold9pt7b);
 
+    tft.setTextColor(C_TEXT);
 
-  tft.setTextColor(
-    C_TEXT
-  );
+    tft.setCursor(8, 22);
 
+    tft.print("CENT. CARBON 2");
 
-  tft.setCursor(
-    8,
-    22
-  );
+    tft.drawFastHLine(0, 32, 320, C_DIM);
 
+    headerStatusDirty = true;
 
-  tft.print(
-    "CENT. CARBON 2"
-  );
-
-
-  tft.drawFastHLine(
-    0,
-    32,
-    320,
-    C_DIM
-  );
-
-
-  headerStatusDirty =
-    true;
-
-
-  clockDirty =
-    true;
+    clockDirty = true;
 }
-
 
 // ============================================================
 // HEADER STATUS ONLY
 // ============================================================
 
-void updateHeaderStatus()
-{
-  bool wifi =
-    WiFi.status() ==
-    WL_CONNECTED;
+void updateHeaderStatus() {
+    bool wifi = WiFi.status() == WL_CONNECTED;
 
+    bool ha = wsConnected && authenticated && subscribed;
 
-  bool ha =
-    wsConnected &&
-    authenticated &&
-    subscribed;
+    if (!headerStateInitialized || wifi != lastShownWifi) {
+        tft.fillCircle(224, 16, 5, wifi ? C_GREEN : C_RED);
 
+        lastShownWifi = wifi;
+    }
 
-  if (
-    !headerStateInitialized ||
-    wifi != lastShownWifi
-  )
-  {
-    tft.fillCircle(
-      224,
-      16,
-      5,
-      wifi
-        ? C_GREEN
-        : C_RED
-    );
+    if (!headerStateInitialized || ha != lastShownHA) {
+        tft.fillCircle(242, 16, 5, ha ? C_CYAN : C_RED);
 
+        lastShownHA = ha;
 
-    lastShownWifi =
-      wifi;
-  }
+        idleConnectionDirty = true;
+    }
 
+    headerStateInitialized = true;
 
-  if (
-    !headerStateInitialized ||
-    ha != lastShownHA
-  )
-  {
-    tft.fillCircle(
-      242,
-      16,
-      5,
-      ha
-        ? C_CYAN
-        : C_RED
-    );
-
-
-    lastShownHA =
-      ha;
-
-
-    idleConnectionDirty =
-      true;
-  }
-
-
-  headerStateInitialized =
-    true;
-
-
-  headerStatusDirty =
-    false;
+    headerStatusDirty = false;
 }
-
 
 // ============================================================
 // HEADER CLOCK ONLY
 // ============================================================
 
-void updateHeaderClock()
-{
-  String now =
-    getClock();
+void updateHeaderClock() {
+    String now = getClock();
 
+    if (now == lastShownClock && !clockDirty) {
+        return;
+    }
 
-  if (
-    now ==
-    lastShownClock &&
-    !clockDirty
-  )
-  {
-    return;
-  }
+    tft.fillRect(258, 2, 62, 27, C_BG);
 
+    tft.setFont(&FreeSans9pt7b);
 
-  tft.fillRect(
-    258,
-    2,
-    62,
-    27,
-    C_BG
-  );
+    tft.setTextColor(C_TEXT);
 
+    tft.setCursor(263, 21);
 
-  tft.setFont(
-    &FreeSans9pt7b
-  );
+    tft.print(now);
 
+    lastShownClock = now;
 
-  tft.setTextColor(
-    C_TEXT
-  );
-
-
-  tft.setCursor(
-    263,
-    21
-  );
-
-
-  tft.print(
-    now
-  );
-
-
-  lastShownClock =
-    now;
-
-
-  clockDirty =
-    false;
+    clockDirty = false;
 }
-
 
 // ============================================================
 // PRINTING STATIC LAYOUT
 // ============================================================
 
-void drawPrintingLayout()
-{
-  tft.fillScreen(
-    C_BG
-  );
+void drawPrintingLayout() {
+    tft.fillScreen(C_BG);
 
+    drawStaticHeader();
 
-  drawStaticHeader();
+    tft.drawFastHLine(8, 83, 304, C_DIM);
 
+    tft.drawFastHLine(8, 151, 304, C_DIM);
 
-  tft.drawFastHLine(
-    8,
-    83,
-    304,
-    C_DIM
-  );
+    tft.drawFastHLine(8, 183, 304, C_DIM);
 
+    progressDirty = true;
 
-  tft.drawFastHLine(
-    8,
-    151,
-    304,
-    C_DIM
-  );
+    timeDirty = true;
 
+    layerSpeedDirty = true;
 
-  tft.drawFastHLine(
-    8,
-    183,
-    304,
-    C_DIM
-  );
+    nozzleDirty = true;
 
+    bedDirty = true;
 
-  progressDirty =
-    true;
-
-
-  timeDirty =
-    true;
-
-
-  layerSpeedDirty =
-    true;
-
-
-  nozzleDirty =
-    true;
-
-
-  bedDirty =
-    true;
-
-
-  chamberDirty =
-    true;
+    chamberDirty = true;
 }
-
 
 // ============================================================
 // IDLE STATIC LAYOUT
 // ============================================================
 
-void drawIdleLayout()
-{
-  tft.fillScreen(
-    C_BG
-  );
+void drawIdleLayout() {
+    tft.fillScreen(C_BG);
 
+    drawStaticHeader();
 
-  drawStaticHeader();
+    drawCenteredText("PRINTER IDLE", 54, &FreeSansBold12pt7b, C_CYAN);
 
+    tft.drawFastHLine(20, 158, 280, C_DIM);
 
-  drawCenteredText(
-    "PRINTER IDLE",
-    54,
-    &FreeSansBold12pt7b,
-    C_CYAN
-  );
+    dateDirty = true;
 
+    idleConnectionDirty = true;
 
-  tft.drawFastHLine(
-    20,
-    158,
-    280,
-    C_DIM
-  );
+    idleDiagnosticsDirty = true;
 
+    markWeatherDirty();
 
-  dateDirty =
-    true;
-
-
-  idleConnectionDirty =
-    true;
-
-
-  idleDiagnosticsDirty =
-    true;
-
-
-  markWeatherDirty();
-
-
-  lastIdleDiagnosticMinute =
-    ULONG_MAX;
+    lastIdleDiagnosticMinute = ULONG_MAX;
 }
-
 
 // ============================================================
 // PROGRESS
 // ============================================================
 
-void updateProgress()
-{
-  float progress =
-    printer.progress;
+void updateProgress() {
+    float progress = printer.progress;
 
+    const int barX = 8;
 
-  const int barX =
-    8;
+    const int barY = 43;
 
-  const int barY =
-    43;
+    const int barW = 244;
 
-  const int barW =
-    244;
+    const int barH = 30;
 
-  const int barH =
-    30;
+    tft.fillRoundRect(barX, barY, barW, barH, 6, C_BAR_BG);
 
+    if (!isnan(progress)) {
+        float p = constrain(progress, 0.0f, 100.0f);
 
-  tft.fillRoundRect(
-    barX,
-    barY,
-    barW,
-    barH,
-    6,
-    C_BAR_BG
-  );
+        int fill = (barW - 4) * p / 100.0f;
 
-
-  if (!isnan(progress))
-  {
-    float p =
-      constrain(
-        progress,
-        0.0f,
-        100.0f
-      );
-
-
-    int fill =
-      (barW - 4) *
-      p /
-      100.0f;
-
-
-    if (fill > 0)
-    {
-      tft.fillRoundRect(
-        barX + 2,
-        barY + 2,
-        fill,
-        barH - 4,
-        5,
-        C_CYAN
-      );
+        if (fill > 0) {
+            tft.fillRoundRect(barX + 2, barY + 2, fill, barH - 4, 5, C_CYAN);
+        }
     }
-  }
 
+    tft.fillRect(258, 39, 62, 40, C_BG);
 
-  tft.fillRect(
-    258,
-    39,
-    62,
-    40,
-    C_BG
-  );
+    tft.setFont(&FreeSansBold18pt7b);
 
+    tft.setTextColor(C_TEXT);
 
-  tft.setFont(
-    &FreeSansBold18pt7b
-  );
+    tft.setCursor(260, 70);
 
+    if (isnan(progress)) {
+        tft.print("--");
+    } else {
+        tft.print((int)round(progress));
+    }
 
-  tft.setTextColor(
-    C_TEXT
-  );
+    tft.setFont(&FreeSansBold12pt7b);
 
+    tft.print("%");
 
-  tft.setCursor(
-    260,
-    70
-  );
-
-
-  if (isnan(progress))
-  {
-    tft.print(
-      "--"
-    );
-  }
-  else
-  {
-    tft.print(
-      (int)round(progress)
-    );
-  }
-
-
-  tft.setFont(
-    &FreeSansBold12pt7b
-  );
-
-
-  tft.print(
-    "%"
-  );
-
-
-  progressDirty =
-    false;
+    progressDirty = false;
 }
-
 
 // ============================================================
 // ETA / REMAINING
 // ============================================================
 
-void updateTimeField()
-{
-  String value;
+void updateTimeField() {
+    String value;
 
-  String label;
+    String label;
 
+    if (showETA) {
+        value = calculateETA();
 
-  if (showETA)
-  {
-    value =
-      calculateETA();
+        label = "Finish at";
+    } else {
+        value = formatRemaining();
 
+        label = "Remaining";
+    }
 
-    label =
-      "Finish at";
-  }
-  else
-  {
-    value =
-      formatRemaining();
+    tft.fillRect(0, 84, 320, 66, C_BG);
 
+    tft.setFont(&FreeSansBold18pt7b);
 
-    label =
-      "Remaining";
-  }
+    tft.setTextColor(C_TEXT);
 
+    int16_t x1;
+    int16_t y1;
 
-  tft.fillRect(
-    0,
-    84,
-    320,
-    66,
-    C_BG
-  );
+    uint16_t w;
+    uint16_t h;
 
+    tft.getTextBounds(value, 0, 0, &x1, &y1, &w, &h);
 
-  tft.setFont(
-    &FreeSansBold18pt7b
-  );
+    tft.setCursor((320 - w) / 2, 119);
 
+    tft.print(value);
 
-  tft.setTextColor(
-    C_TEXT
-  );
+    tft.setFont(&FreeSans9pt7b);
 
+    tft.setTextColor(C_DIM);
 
-  int16_t x1;
-  int16_t y1;
+    tft.getTextBounds(label, 0, 0, &x1, &y1, &w, &h);
 
-  uint16_t w;
-  uint16_t h;
+    tft.setCursor((320 - w) / 2, 143);
 
+    tft.print(label);
 
-  tft.getTextBounds(
-    value,
-    0,
-    0,
-    &x1,
-    &y1,
-    &w,
-    &h
-  );
-
-
-  tft.setCursor(
-    (
-      320 -
-      w
-    ) /
-    2,
-    119
-  );
-
-
-  tft.print(
-    value
-  );
-
-
-  tft.setFont(
-    &FreeSans9pt7b
-  );
-
-
-  tft.setTextColor(
-    C_DIM
-  );
-
-
-  tft.getTextBounds(
-    label,
-    0,
-    0,
-    &x1,
-    &y1,
-    &w,
-    &h
-  );
-
-
-  tft.setCursor(
-    (
-      320 -
-      w
-    ) /
-    2,
-    143
-  );
-
-
-  tft.print(
-    label
-  );
-
-
-  timeDirty =
-    false;
+    timeDirty = false;
 }
 
+// ============================================================
+// PAUSED TIME FIELD
+// ============================================================
+
+void updatePausedTimeField() {
+    tft.fillRect(0, 84, 320, 66, C_BG);
+
+    drawCenteredText("PRINT PAUSED", 112, &FreeSansBold18pt7b, C_ORANGE);
+
+    String remaining = "Remaining: ";
+    remaining += formatRemaining();
+
+    drawCenteredText(remaining, 143, &FreeSans9pt7b, C_GREY);
+
+    timeDirty = false;
+}
+
+// ============================================================
+// ERROR DETAILS
+// ============================================================
+
+void updateErrorDetails() {
+    tft.fillRect(0, 124, 320, 115, C_BG);
+
+    String errorText = printer.printError;
+    String reasonText = printer.errorReason;
+
+    if (invalidState(errorText))
+        errorText = "No error code available";
+
+    if (invalidState(reasonText))
+        reasonText = "No error reason available";
+
+    if (errorText.length() > 38)
+        errorText = errorText.substring(0, 35) + "...";
+
+    if (reasonText.length() > 38)
+        reasonText = reasonText.substring(0, 35) + "...";
+
+    drawCenteredText("Error", 146, &FreeSans9pt7b, C_DIM);
+
+    drawCenteredText(errorText, 171, &FreeSansBold9pt7b, C_RED);
+
+    drawCenteredText("Reason", 199, &FreeSans9pt7b, C_DIM);
+
+    drawCenteredText(reasonText, 226, &FreeSansBold9pt7b, C_TEXT);
+
+    errorDetailsDirty = false;
+}
 
 // ============================================================
 // LAYER + SPEED
 // ============================================================
 
-void updateLayerAndSpeed()
-{
-  tft.fillRect(
-    0,
-    152,
-    320,
-    30,
-    C_BG
-  );
+void updateLayerAndSpeed() {
+    tft.fillRect(0, 152, 320, 30, C_BG);
 
+    tft.setFont(&FreeSans9pt7b);
 
-  tft.setFont(
-    &FreeSans9pt7b
-  );
+    tft.setTextColor(C_DIM);
 
+    tft.setCursor(8, 175);
 
-  tft.setTextColor(
-    C_DIM
-  );
+    tft.print("Layer");
 
+    tft.setFont(&FreeSansBold12pt7b);
 
-  tft.setCursor(
-    8,
-    175
-  );
+    tft.setTextColor(C_TEXT);
 
+    tft.setCursor(60, 176);
 
-  tft.print(
-    "Layer"
-  );
+    if (printer.currentLayer >= 0) {
+        tft.print(printer.currentLayer);
+    } else {
+        tft.print("-");
+    }
 
+    tft.print(" / ");
 
-  tft.setFont(
-    &FreeSansBold12pt7b
-  );
+    if (printer.totalLayers >= 0) {
+        tft.print(printer.totalLayers);
+    } else {
+        tft.print("-");
+    }
 
+    tft.setFont(&FreeSans9pt7b);
 
-  tft.setTextColor(
-    C_TEXT
-  );
+    tft.setTextColor(C_DIM);
 
+    tft.setCursor(225, 175);
 
-  tft.setCursor(
-    60,
-    176
-  );
+    tft.print("Speed");
 
+    tft.setFont(&FreeSansBold12pt7b);
 
-  if (
-    printer.currentLayer >=
-    0
-  )
-  {
-    tft.print(
-      printer.currentLayer
-    );
-  }
-  else
-  {
-    tft.print(
-      "-"
-    );
-  }
+    tft.setTextColor(C_CYAN);
 
+    tft.setCursor(280, 176);
 
-  tft.print(
-    " / "
-  );
+    tft.print(speedMode(printer.printSpeed));
 
-
-  if (
-    printer.totalLayers >=
-    0
-  )
-  {
-    tft.print(
-      printer.totalLayers
-    );
-  }
-  else
-  {
-    tft.print(
-      "-"
-    );
-  }
-
-
-  tft.setFont(
-    &FreeSans9pt7b
-  );
-
-
-  tft.setTextColor(
-    C_DIM
-  );
-
-
-  tft.setCursor(
-    225,
-    175
-  );
-
-
-  tft.print(
-    "Speed"
-  );
-
-
-  tft.setFont(
-    &FreeSansBold12pt7b
-  );
-
-
-  tft.setTextColor(
-    C_CYAN
-  );
-
-
-  tft.setCursor(
-    280,
-    176
-  );
-
-
-  tft.print(
-    speedMode(
-      printer.printSpeed
-    )
-  );
-
-
-  layerSpeedDirty =
-    false;
+    layerSpeedDirty = false;
 }
-
 
 // ============================================================
 // TEMPERATURE FIELD
 // ============================================================
 
-void drawTemperatureField(
-  int x,
-  int iconType,
-  float value,
-  uint16_t color
-)
-{
-  tft.fillRect(
-    x,
-    187,
-    101,
-    51,
-    C_BG
-  );
+void drawTemperatureField(int x, int iconType, float value, uint16_t color) {
+    tft.fillRect(x, 187, 101, 51, C_BG);
 
+    if (iconType == 0) {
+        drawNozzleIcon(x + 3, 211, color);
+    } else if (iconType == 1) {
+        drawBedIcon(x + 2, 207, color);
+    } else {
+        drawChamberIcon(x + 1, 210, color);
+    }
 
-  if (
-    iconType ==
-    0
-  )
-  {
-    drawNozzleIcon(
-      x + 3,
-      211,
-      color
-    );
-  }
-  else if (
-    iconType ==
-    1
-  )
-  {
-    drawBedIcon(
-      x + 2,
-      207,
-      color
-    );
-  }
-  else
-  {
-    drawChamberIcon(
-      x + 1,
-      210,
-      color
-    );
-  }
+    tft.setFont(&FreeSansBold12pt7b);
 
+    tft.setTextColor(color);
 
-  tft.setFont(
-    &FreeSansBold12pt7b
-  );
+    tft.setCursor(x + 34, 231);
 
+    if (isnan(value)) {
+        tft.print("--");
+    } else {
+        tft.print((int)round(value));
+    }
 
-  tft.setTextColor(
-    color
-  );
+    tft.setFont(&FreeSans9pt7b);
 
+    tft.setTextColor(C_GREY);
 
-  tft.setCursor(
-    x + 34,
-    231
-  );
+    tft.print((char)247);
 
-
-  if (isnan(value))
-  {
-    tft.print(
-      "--"
-    );
-  }
-  else
-  {
-    tft.print(
-      (int)round(value)
-    );
-  }
-
-
-  tft.setFont(
-    &FreeSans9pt7b
-  );
-
-
-  tft.setTextColor(
-    C_GREY
-  );
-
-
-  tft.print(
-    (char)247
-  );
-
-
-  tft.print(
-    "C"
-  );
+    tft.print("C");
 }
-
 
 // ============================================================
 // IDLE DATE
 // ============================================================
 
-void updateIdleDate()
-{
-  String date =
-    getLongDate();
+void updateIdleDate() {
+    String date = getLongDate();
 
+    if (date == lastShownDate && !dateDirty) {
+        return;
+    }
 
-  if (
-    date ==
-      lastShownDate &&
-    !dateDirty
-  )
-  {
-    return;
-  }
+    tft.fillRect(0, 56, 320, 24, C_BG);
 
+    drawCenteredText(date, 76, &FreeSans9pt7b, C_TEXT);
 
-  tft.fillRect(
-    0,
-    56,
-    320,
-    24,
-    C_BG
-  );
+    lastShownDate = date;
 
-
-  drawCenteredText(
-    date,
-    76,
-    &FreeSans9pt7b,
-    C_TEXT
-  );
-
-
-  lastShownDate =
-    date;
-
-
-  dateDirty =
-    false;
+    dateDirty = false;
 }
-
 
 // ============================================================
 // IDLE LARGE CLOCK
 // ============================================================
 
-void updateIdleLargeClock()
-{
-  String now =
-    getClock();
+void updateIdleLargeClock() {
+    String now = getClock();
 
+    tft.fillRect(0, 111, 320, 43, C_BG);
 
-  tft.fillRect(
-    0,
-    111,
-    320,
-    43,
-    C_BG
-  );
-
-
-  drawCenteredText(
-    now,
-    143,
-    &FreeSansBold18pt7b,
-    C_TEXT
-  );
+    drawCenteredText(now, 143, &FreeSansBold18pt7b, C_TEXT);
 }
-
 
 // ============================================================
 // IDLE HA STATUS
 // ============================================================
 
-void updateIdleConnection()
-{
-  bool haOK =
-    wsConnected &&
-    authenticated &&
-    subscribed;
+void updateIdleConnection() {
+    bool haOK = wsConnected && authenticated && subscribed;
 
+    tft.fillRect(0, 162, 320, 27, C_BG);
 
-  tft.fillRect(
-    0,
-    162,
-    320,
-    27,
-    C_BG
-  );
+    drawCenteredText(haOK ? "HOME ASSISTANT CONNECTED" : "HOME ASSISTANT OFFLINE", 182,
+                     &FreeSansBold9pt7b, haOK ? C_GREEN : C_RED);
 
-
-  drawCenteredText(
-    haOK
-      ? "HOME ASSISTANT CONNECTED"
-      : "HOME ASSISTANT OFFLINE",
-    182,
-    &FreeSansBold9pt7b,
-    haOK
-      ? C_GREEN
-      : C_RED
-  );
-
-
-  idleConnectionDirty =
-    false;
+    idleConnectionDirty = false;
 }
-
 
 // ============================================================
 // IDLE DIAGNOSTICS
 // ============================================================
 
-void updateIdleDiagnostics()
-{
-  tft.fillRect(
-    0,
-    191,
-    320,
-    48,
-    C_BG
-  );
+void updateIdleDiagnostics() {
+    tft.fillRect(0, 191, 320, 48, C_BG);
 
+    String uptime = getUptimeString();
 
-  String line1 =
-    "Boots ";
+    uptime.replace(" ", "");
 
-  line1 +=
-    String(
-      bootCount
-    );
+    String line1 = "B";
 
+    line1 += String(bootCount);
 
-  line1 +=
-    "   Uptime ";
+    line1 += " U";
 
-  line1 +=
-    getUptimeString();
+    line1 += uptime;
 
+    line1 += " ";
 
-  drawCenteredText(
-    line1,
-    210,
-    &FreeSans9pt7b,
-    C_DIM
-  );
+    line1 += FIRMWARE_COMPACT_IDENTIFIER;
 
+    drawCenteredText(line1, 210, &FreeSans9pt7b, C_DIM);
 
-  String line2 =
-    "Last reset: ";
+    String line2 = "Last reset: ";
 
-  line2 +=
-    resetReasonText(
-      lastResetReason
-    );
+    line2 += resetReasonText(lastResetReason);
 
+    drawCenteredText(line2, 233, &FreeSans9pt7b, lastResetReason == ESP_RST_PANIC ? C_RED : C_DIM);
 
-  drawCenteredText(
-    line2,
-    233,
-    &FreeSans9pt7b,
-    lastResetReason ==
-      ESP_RST_PANIC
-      ? C_RED
-      : C_DIM
-  );
-
-
-  idleDiagnosticsDirty =
-    false;
+    idleDiagnosticsDirty = false;
 }
-
 
 // ============================================================
 // CHECK CLOCK / DATE CHANGES
 // ============================================================
 
-void checkTimeChanges()
-{
-  String clockNow =
-    getClock();
+void checkTimeChanges() {
+    String clockNow = getClock();
 
+    if (clockNow != lastShownClock) {
+        clockDirty = true;
 
-  if (
-    clockNow !=
-    lastShownClock
-  )
-  {
-    clockDirty =
-      true;
+        if (currentDisplayMode == MODE_IDLE) {
+            /*
+              Large idle clock uses same HH:MM,
+              therefore redraw once per minute too.
+            */
 
+            // handled below by clockDirty
+        }
 
-    if (
-      currentDisplayMode ==
-      MODE_IDLE
-    )
-    {
-      /*
-        Large idle clock uses same HH:MM,
-        therefore redraw once per minute too.
-      */
+        /*
+          ETA changes with current time even if remaining sensor
+          has not changed.
+        */
 
-      // handled below by clockDirty
+        if (currentDisplayMode == MODE_PRINTING && showETA) {
+            timeDirty = true;
+        }
     }
 
+    if (currentDisplayMode == MODE_IDLE) {
+        String dateNow = getLongDate();
 
-    /*
-      ETA changes with current time even if remaining sensor
-      has not changed.
-    */
+        if (dateNow != lastShownDate) {
+            dateDirty = true;
+        }
 
-    if (
-      currentDisplayMode ==
-      MODE_PRINTING &&
-      showETA
-    )
-    {
-      timeDirty =
-        true;
+        unsigned long currentMinute = millis() / 60000UL;
+
+        if (currentMinute != lastIdleDiagnosticMinute) {
+            lastIdleDiagnosticMinute = currentMinute;
+
+            idleDiagnosticsDirty = true;
+        }
     }
-  }
-
-
-  if (
-    currentDisplayMode ==
-    MODE_IDLE
-  )
-  {
-    String dateNow =
-      getLongDate();
-
-
-    if (
-      dateNow !=
-      lastShownDate
-    )
-    {
-      dateDirty =
-        true;
-    }
-
-
-    unsigned long currentMinute =
-      millis() /
-      60000UL;
-
-
-    if (
-      currentMinute !=
-      lastIdleDiagnosticMinute
-    )
-    {
-      lastIdleDiagnosticMinute =
-        currentMinute;
-
-
-      idleDiagnosticsDirty =
-        true;
-    }
-  }
 }
-
 
 // ============================================================
 // DISPLAY UPDATE
 // ============================================================
 
-void updateDisplay()
-{
-  // ----------------------------------------------------------
-  // MODE
-  // ----------------------------------------------------------
+void updateDisplay() {
+    // ----------------------------------------------------------
+    // MODE
+    // ----------------------------------------------------------
 
-  DisplayMode wantedMode =
-    printerIsPrinting()
-      ? MODE_PRINTING
-      : MODE_IDLE;
+    DisplayMode wantedMode;
 
+    switch (getPrinterState()) {
+    case PRINTER_STATE_PRINTING:
+        wantedMode = MODE_PRINTING;
+        break;
 
-  if (
-    wantedMode !=
-    currentDisplayMode
-  )
-  {
-    currentDisplayMode =
-      wantedMode;
+    case PRINTER_STATE_PAUSED:
+        wantedMode = MODE_PAUSED;
+        break;
 
+    case PRINTER_STATE_ERROR:
+        wantedMode = MODE_ERROR;
+        break;
 
-    fullRedrawNeeded =
-      true;
+    case PRINTER_STATE_PRINT_COMPLETE:
+        wantedMode = MODE_PRINT_COMPLETE;
+        break;
 
-
-    if (
-      currentDisplayMode ==
-      MODE_PRINTING
-    )
-    {
-      showETA =
-        true;
-
-
-      lastTimePageSwitch =
-        millis();
+    case PRINTER_STATE_IDLE:
+    case PRINTER_STATE_UNKNOWN:
+    default:
+        wantedMode = MODE_IDLE;
+        break;
     }
-  }
 
+    if (wantedMode != currentDisplayMode) {
+        currentDisplayMode = wantedMode;
 
-  // ----------------------------------------------------------
-  // FULL REDRAW ONLY ON MODE CHANGE
-  // ----------------------------------------------------------
+        fullRedrawNeeded = true;
 
-  if (
-    fullRedrawNeeded
-  )
-  {
-    headerStateInitialized =
-      false;
+        if (currentDisplayMode == MODE_PRINTING) {
+            showETA = true;
 
-
-    lastShownClock =
-      "";
-
-
-    if (
-      currentDisplayMode ==
-      MODE_PRINTING
-    )
-    {
-      drawPrintingLayout();
+            lastTimePageSwitch = millis();
+        }
     }
+
+    // ----------------------------------------------------------
+    // FULL REDRAW ONLY ON MODE CHANGE
+    // ----------------------------------------------------------
+
+    if (fullRedrawNeeded) {
+        headerStateInitialized = false;
+
+        lastShownClock = "";
+
+        switch (currentDisplayMode) {
+        case MODE_PRINTING:
+            drawPrintingLayout();
+            break;
+
+        case MODE_PAUSED:
+            drawPausedLayout();
+            break;
+
+        case MODE_ERROR:
+            drawErrorLayout();
+            break;
+
+        case MODE_PRINT_COMPLETE:
+            drawPrintCompleteLayout();
+            break;
+
+        case MODE_IDLE:
+        case MODE_UNKNOWN:
+        default:
+            drawIdleLayout();
+            break;
+        }
+
+        fullRedrawNeeded = false;
+    }
+
+    // ----------------------------------------------------------
+    // DETECT TIME CHANGES
+    // ----------------------------------------------------------
+
+    checkTimeChanges();
+
+    // ----------------------------------------------------------
+    // HEADER
+    // ----------------------------------------------------------
+
+    if (headerStatusDirty) {
+        updateHeaderStatus();
+    }
+
+    if (clockDirty) {
+        updateHeaderClock();
+    }
+
+    // ----------------------------------------------------------
+    // PRINTING
+    // ----------------------------------------------------------
+
+    if (currentDisplayMode == MODE_PRINTING) {
+        if (millis() - lastTimePageSwitch >= appConfig.etaRemainingSwitchIntervalMs) {
+            lastTimePageSwitch = millis();
+
+            showETA = !showETA;
+
+            timeDirty = true;
+        }
+
+        if (progressDirty) {
+            updateProgress();
+        }
+
+        if (timeDirty) {
+            updateTimeField();
+        }
+
+        if (layerSpeedDirty) {
+            updateLayerAndSpeed();
+        }
+
+        if (nozzleDirty) {
+            drawTemperatureField(4, 0, printer.nozzleTemp, C_RED);
+
+            nozzleDirty = false;
+        }
+
+        if (bedDirty) {
+            drawTemperatureField(109, 1, printer.bedTemp, C_ORANGE);
+
+            bedDirty = false;
+        }
+
+        if (chamberDirty) {
+            drawTemperatureField(214, 2, printer.boxTemp, C_GREEN);
+
+            chamberDirty = false;
+        }
+
+        return;
+    }
+
+    // ----------------------------------------------------------
+    // PAUSED
+    // ----------------------------------------------------------
+
+    if (currentDisplayMode == MODE_PAUSED) {
+        if (progressDirty)
+            updateProgress();
+
+        if (timeDirty)
+            updatePausedTimeField();
+
+        if (layerSpeedDirty)
+            updateLayerAndSpeed();
+
+        if (nozzleDirty) {
+            drawTemperatureField(4, 0, printer.nozzleTemp, C_RED);
+            nozzleDirty = false;
+        }
+
+        if (bedDirty) {
+            drawTemperatureField(109, 1, printer.bedTemp, C_ORANGE);
+            bedDirty = false;
+        }
+
+        if (chamberDirty) {
+            drawTemperatureField(214, 2, printer.boxTemp, C_GREEN);
+            chamberDirty = false;
+        }
+
+        return;
+    }
+
+    // ----------------------------------------------------------
+    // ERROR
+    // ----------------------------------------------------------
+
+    if (currentDisplayMode == MODE_ERROR) {
+        if (errorDetailsDirty)
+            updateErrorDetails();
+
+        return;
+    }
+
+    // ----------------------------------------------------------
+    // PRINT COMPLETE
+    // ----------------------------------------------------------
+
+    if (currentDisplayMode == MODE_PRINT_COMPLETE)
+        return;
+
+    // ----------------------------------------------------------
+    // IDLE
+    // ----------------------------------------------------------
+
+    if (dateDirty) {
+        updateIdleDate();
+    }
+
+    if (weatherNeedsRedraw()) {
+        drawWeatherFields();
+    }
+
+    if (idleConnectionDirty) {
+        updateIdleConnection();
+    }
+
+    if (idleDiagnosticsDirty) {
+        updateIdleDiagnostics();
+    }
+}
+
+// ============================================================
+// PAUSED STATIC LAYOUT
+// ============================================================
+
+void drawPausedLayout() {
+    tft.fillScreen(C_BG);
+    drawStaticHeader();
+
+    tft.drawFastHLine(8, 83, 304, C_ORANGE);
+    tft.drawFastHLine(8, 151, 304, C_DIM);
+    tft.drawFastHLine(8, 183, 304, C_DIM);
+
+    progressDirty = true;
+    timeDirty = true;
+    layerSpeedDirty = true;
+    nozzleDirty = true;
+    bedDirty = true;
+    chamberDirty = true;
+}
+
+// ============================================================
+// ERROR STATIC LAYOUT
+// ============================================================
+
+void drawErrorLayout() {
+    tft.fillScreen(C_BG);
+    drawStaticHeader();
+
+    drawCenteredText("PRINTER ERROR", 70, &FreeSansBold18pt7b, C_RED);
+
+    tft.fillTriangle(160, 84, 143, 115, 177, 115, C_RED);
+
+    tft.setFont(&FreeSansBold12pt7b);
+    tft.setTextColor(C_BG);
+    tft.setCursor(157, 109);
+    tft.print("!");
+
+    tft.drawFastHLine(20, 122, 280, C_RED);
+
+    errorDetailsDirty = true;
+}
+
+// ============================================================
+// PRINT COMPLETE STATIC LAYOUT
+// ============================================================
+
+void drawPrintCompleteLayout() {
+    tft.fillScreen(C_BG);
+    drawStaticHeader();
+
+    drawCenteredText("PRINT COMPLETE", 72, &FreeSansBold18pt7b, C_GREEN);
+
+    tft.drawCircle(160, 105, 18, C_GREEN);
+    tft.drawLine(150, 105, 157, 112, C_GREEN);
+    tft.drawLine(157, 112, 171, 96, C_GREEN);
+
+    String layers = "Final layer: ";
+
+    int finalCurrentLayer = getPrintCompletionCurrentLayer();
+
+    int finalTotalLayers = getPrintCompletionTotalLayers();
+
+    if (finalCurrentLayer >= 0)
+        layers += String(finalCurrentLayer);
     else
-    {
-      drawIdleLayout();
-    }
+        layers += "-";
 
+    layers += " / ";
 
-    fullRedrawNeeded =
-      false;
-  }
+    if (finalTotalLayers >= 0)
+        layers += String(finalTotalLayers);
+    else
+        layers += "-";
 
+    drawCenteredText(layers, 153, &FreeSansBold12pt7b, C_TEXT);
 
-  // ----------------------------------------------------------
-  // DETECT TIME CHANGES
-  // ----------------------------------------------------------
+    String completed = "Completed at ";
+    completed += getPrintCompletionTime();
 
-  checkTimeChanges();
+    drawCenteredText(completed, 184, &FreeSans9pt7b, C_GREY);
 
-
-  // ----------------------------------------------------------
-  // HEADER
-  // ----------------------------------------------------------
-
-  if (
-    headerStatusDirty
-  )
-  {
-    updateHeaderStatus();
-  }
-
-
-  if (
-    clockDirty
-  )
-  {
-    updateHeaderClock();
-  }
-
-
-  // ----------------------------------------------------------
-  // PRINTING
-  // ----------------------------------------------------------
-
-  if (
-    currentDisplayMode ==
-    MODE_PRINTING
-  )
-  {
-    if (
-      millis() -
-        lastTimePageSwitch >=
-        appConfig.etaRemainingSwitchIntervalMs
-    )
-    {
-      lastTimePageSwitch =
-        millis();
-
-
-      showETA =
-        !showETA;
-
-
-      timeDirty =
-        true;
-    }
-
-
-    if (
-      progressDirty
-    )
-    {
-      updateProgress();
-    }
-
-
-    if (
-      timeDirty
-    )
-    {
-      updateTimeField();
-    }
-
-
-    if (
-      layerSpeedDirty
-    )
-    {
-      updateLayerAndSpeed();
-    }
-
-
-    if (
-      nozzleDirty
-    )
-    {
-      drawTemperatureField(
-        4,
-        0,
-        printer.nozzleTemp,
-        C_RED
-      );
-
-
-      nozzleDirty =
-        false;
-    }
-
-
-    if (
-      bedDirty
-    )
-    {
-      drawTemperatureField(
-        109,
-        1,
-        printer.bedTemp,
-        C_ORANGE
-      );
-
-
-      bedDirty =
-        false;
-    }
-
-
-    if (
-      chamberDirty
-    )
-    {
-      drawTemperatureField(
-        214,
-        2,
-        printer.boxTemp,
-        C_GREEN
-      );
-
-
-      chamberDirty =
-        false;
-    }
-
-
-    return;
-  }
-
-
-  // ----------------------------------------------------------
-  // IDLE
-  // ----------------------------------------------------------
-
-  if (
-    dateDirty
-  )
-  {
-    updateIdleDate();
-  }
-
-
-  if (
-    weatherNeedsRedraw()
-  )
-  {
-    drawWeatherFields();
-  }
-
-
-  if (
-    idleConnectionDirty
-  )
-  {
-    updateIdleConnection();
-  }
-
-
-  if (
-    idleDiagnosticsDirty
-  )
-  {
-    updateIdleDiagnostics();
-  }
+    drawCenteredText("Returning to idle automatically", 222, &FreeSans9pt7b, C_DIM);
 }

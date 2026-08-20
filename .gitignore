@@ -1,0 +1,34 @@
+# Arduino and ESP32 build output
+build/
+*.bin
+*.elf
+*.hex
+*.map
+*.uf2
+
+# Local device data and sensitive configuration exports
+state_trace*.log
+config.json
+config.tmp
+config.local.json
+config.export.json
+secrets.json
+credentials.json
+.env
+.env.*
+!.env.example
+
+# IDE and editor state
+.arduinoIDE/
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# Temporary and operating-system files
+*.bak
+*.tmp
+.DS_Store
+Thumbs.db

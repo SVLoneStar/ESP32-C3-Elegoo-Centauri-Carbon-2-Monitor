@@ -17,3 +17,5 @@ bool isWiFiProvisioningActive();
 String buildWebSocketURL();
 bool tryWebSocketConnect();
 void maintainWebSocket();
+uint16_t getConsecutiveEarlyDisconnectCount();
+uint32_t getWebSocketClientReinitializationCount();
