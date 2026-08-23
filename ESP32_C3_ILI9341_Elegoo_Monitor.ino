@@ -33,9 +33,6 @@ void setup() {
     initializeBootStageTracking();
     markBootStage(BOOT_STAGE_SERIAL_BEGIN);
     Serial.begin(115200);
-#if ARDUINO_USB_CDC_ON_BOOT
-    Serial.setTxTimeoutMs(0);
-#endif
     initializeSerialLog();
     enableBootStageSerialLogging();
     markBootStage(BOOT_STAGE_SERIAL_READY);

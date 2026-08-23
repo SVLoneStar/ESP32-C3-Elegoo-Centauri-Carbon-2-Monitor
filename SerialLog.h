@@ -9,3 +9,5 @@ bool beginSerialLogBlock();
 void serialLogBlockLine(const char* line);
 void serialLogBlockLinef(const char* format, ...);
 void endSerialLogBlock();
+uint32_t getSerialLogShortWriteCount();
+uint32_t getSerialLogDroppedWriteCount();
