@@ -3,6 +3,7 @@
 #include "Diagnostics.h"
 #include "PrinterData.h"
 #include "StateTrace.h"
+#include "BootStage.h"
 #include <WiFiManager.h>
 #include <new>
 
@@ -20,6 +21,17 @@ bool clientReinitializing = false;
 bool clientWasReinitialized = false;
 
 uint32_t clientReinitializationCount = 0;
+
+bool initialWebSocketConnectObserved = false;
+
+void onWiFiManagerAPStarted(WiFiManager*) {
+    markBootStage(BOOT_STAGE_CAPTIVE_PORTAL_STARTED);
+
+    wifi_mode_t mode = WiFi.getMode();
+    IPAddress apAddress = WiFi.softAPIP();
+    if (!(mode & WIFI_AP) || apAddress == IPAddress(0, 0, 0, 0))
+        markBootStage(BOOT_STAGE_CAPTIVE_PORTAL_INVALID);
+}
 
 void increaseEarlyDisconnectBackoff() {
     if (reconnectDelayMs >= MAX_RECONNECT_DELAY / 2) {
@@ -43,7 +55,7 @@ void recreateWebSocketClient() {
     clientWasReinitialized = true;
     clientReinitializationCount++;
 
-    Serial.println("*** WEBSOCKET CLIENT REINITIALIZED ***");
+    serialDiagnostic("*** WEBSOCKET CLIENT REINITIALIZED ***");
     stateTraceLog("WS_CLIENT_REINITIALIZED", "after 3 early disconnects");
 }
 }
@@ -77,9 +89,7 @@ void loadInitialEntity(const char* entity) {
     String url = buildRestURL(entity);
 
     if (!http.begin(url)) {
-        Serial.print("REST begin failed: ");
-
-        Serial.println(entity);
+        serialDiagnostic("REST begin failed: entity=%s", entity);
 
         return;
     }
@@ -95,13 +105,7 @@ void loadInitialEntity(const char* entity) {
     recordBlockingCall("printerREST.GET", millis() - callStarted);
 
     if (code != 200) {
-        Serial.print("REST ");
-
-        Serial.print(entity);
-
-        Serial.print(" -> ");
-
-        Serial.println(code);
+        serialDiagnostic("REST result | entity=%s http_code=%d", entity, code);
 
         http.end();
 
@@ -120,9 +124,7 @@ void loadInitialEntity(const char* entity) {
     http.end();
 
     if (error) {
-        Serial.print("REST JSON error: ");
-
-        Serial.println(entity);
+        serialDiagnostic("REST JSON error: entity=%s", entity);
 
         return;
     }
@@ -131,11 +133,7 @@ void loadInitialEntity(const char* entity) {
 
     updatePrinterEntity(entity, state);
 
-    Serial.print(entity);
-
-    Serial.print(" = ");
-
-    Serial.println(state);
+    serialDiagnostic("REST state | entity=%s state=%s", entity, state.c_str());
 }
 
 // ============================================================
@@ -144,17 +142,16 @@ void loadInitialEntity(const char* entity) {
 
 void loadInitialPrinterData() {
     if (!hasValidHomeAssistantConfig(appConfig)) {
-        Serial.println("Home Assistant configuration is incomplete.");
+        serialDiagnostic("Home Assistant configuration is incomplete.");
         return;
     }
 
     if (!hasValidPrinterEntityConfig(appConfig)) {
-        Serial.println("Printer entity prefix is incomplete or invalid.");
+        serialDiagnostic("Printer entity prefix is incomplete or invalid.");
         return;
     }
 
-    Serial.println();
-    Serial.println("Loading initial printer states...");
+    serialDiagnostic("Loading initial printer states...");
 
     const char* entities[] = {ENTITY_CURRENT_STATUS, ENTITY_PRINT_STATUS,
 
@@ -176,7 +173,7 @@ void loadInitialPrinterData() {
         delay(150);
     }
 
-    Serial.println("Initial states complete.");
+    serialDiagnostic("Initial states complete.");
 }
 
 // ============================================================
@@ -208,7 +205,7 @@ void sendAuth() {
 
     message += "\"}";
 
-    Serial.println("-> Sending LLAT");
+    serialDiagnostic("-> Sending LLAT");
 
     client.send(message);
 }
@@ -221,7 +218,7 @@ void subscribePrinterTriggers() {
     if (!hasValidPrinterEntityConfig(appConfig)) {
         subscriptionPending = false;
         subscribed = false;
-        Serial.println("Printer trigger subscription skipped: entity prefix invalid.");
+        serialDiagnostic("Printer trigger subscription skipped: entity prefix invalid.");
         return;
     }
 
@@ -275,25 +272,20 @@ void subscribePrinterTriggers() {
                "}"
                "}";
 
-    Serial.println();
-    Serial.println("-> Sending printer-only subscribe_trigger");
+    serialDiagnostic("-> Sending printer-only subscribe_trigger");
 
-    Serial.print("Subscription JSON size: ");
-
-    Serial.print(message.length());
-
-    Serial.println(" bytes");
+    serialDiagnostic("Subscription JSON size: %u bytes", (unsigned int)message.length());
 
     if (client.send(message)) {
         subscriptionPending = true;
 
-        Serial.println("   subscribe_trigger sent");
+        serialDiagnostic("   subscribe_trigger sent");
     } else {
         subscriptionPending = false;
 
         subscribed = false;
 
-        Serial.println("   SUBSCRIPTION SEND FAILED");
+        serialDiagnostic("   SUBSCRIPTION SEND FAILED");
     }
 }
 
@@ -313,9 +305,7 @@ void handleTriggerMessage(const String& data) {
     DeserializationError error = deserializeJson(doc, data, DeserializationOption::Filter(filter));
 
     if (error) {
-        Serial.print("Trigger JSON error: ");
-
-        Serial.println(error.c_str());
+        serialDiagnostic("Trigger JSON error: %s", error.c_str());
 
         return;
     }
@@ -332,13 +322,7 @@ void handleTriggerMessage(const String& data) {
 
     triggerCount++;
 
-    Serial.print("[TRIGGER] ");
-
-    Serial.print(entity);
-
-    Serial.print(" = ");
-
-    Serial.println(state);
+    serialDiagnostic("[TRIGGER] entity=%s state=%s", entity.c_str(), state.c_str());
 }
 
 // ============================================================
@@ -351,7 +335,7 @@ void onMessageCallback(WebsocketsClient& wsClient, WebsocketsMessage message) {
     const String& data = message.data();
 
     if (data.indexOf("\"type\":\"auth_required\"") >= 0) {
-        Serial.println("*** AUTH REQUIRED ***");
+        serialDiagnostic("*** AUTH REQUIRED ***");
 
         sendAuth();
 
@@ -359,7 +343,7 @@ void onMessageCallback(WebsocketsClient& wsClient, WebsocketsMessage message) {
     }
 
     if (data.indexOf("\"type\":\"auth_ok\"") >= 0) {
-        Serial.println("*** AUTH OK ***");
+        serialDiagnostic("*** AUTH OK ***");
 
         authenticated = true;
 
@@ -383,7 +367,7 @@ void onMessageCallback(WebsocketsClient& wsClient, WebsocketsMessage message) {
 
         idleConnectionDirty = true;
 
-        Serial.println("*** AUTH INVALID ***");
+        serialDiagnostic("*** AUTH INVALID ***");
 
         return;
     }
@@ -394,14 +378,14 @@ void onMessageCallback(WebsocketsClient& wsClient, WebsocketsMessage message) {
 
             subscribed = true;
 
-            Serial.println("*** PRINTER TRIGGER SUBSCRIPTION OK ***");
+            serialDiagnostic("*** PRINTER TRIGGER SUBSCRIPTION OK ***");
 
             if (consecutiveEarlyDisconnects > 0 || clientWasReinitialized) {
                 String recovery = "early_disconnects=";
                 recovery += String(consecutiveEarlyDisconnects);
 
                 stateTraceLog("WS_RECOVERY_SUCCESS", recovery);
-                Serial.println("*** WEBSOCKET RECOVERY SUCCESSFUL ***");
+                serialDiagnostic("*** WEBSOCKET RECOVERY SUCCESSFUL ***");
             }
 
             consecutiveEarlyDisconnects = 0;
@@ -412,7 +396,7 @@ void onMessageCallback(WebsocketsClient& wsClient, WebsocketsMessage message) {
 
             subscribed = false;
 
-            Serial.println("*** PRINTER TRIGGER SUBSCRIPTION FAILED ***");
+            serialDiagnostic("*** PRINTER TRIGGER SUBSCRIPTION FAILED ***");
         }
 
         headerStatusDirty = true;
@@ -446,8 +430,7 @@ void onEventCallback(WebsocketsEvent event, String data) {
 
         headerStatusDirty = true;
 
-        Serial.println();
-        Serial.println("*** WEBSOCKET CONNECTED ***");
+        serialDiagnostic("*** WEBSOCKET CONNECTED ***");
 
         stateTraceLog("WEBSOCKET", "CONNECTED");
 
@@ -460,8 +443,7 @@ void onEventCallback(WebsocketsEvent event, String data) {
 
         disconnectCount++;
 
-        Serial.println();
-        Serial.println("*** WEBSOCKET DISCONNECTED ***");
+        serialDiagnostic("*** WEBSOCKET DISCONNECTED ***");
 
         stateTraceLog("WEBSOCKET", "DISCONNECTED");
 
@@ -471,8 +453,8 @@ void onEventCallback(WebsocketsEvent event, String data) {
             consecutiveEarlyDisconnects++;
             increaseEarlyDisconnectBackoff();
 
-            Serial.print("Early WebSocket disconnect count: ");
-            Serial.println(consecutiveEarlyDisconnects);
+            serialDiagnostic("Early WebSocket disconnects: count=%u",
+                             (unsigned int)consecutiveEarlyDisconnects);
 
             String detail = "count=";
             detail += String(consecutiveEarlyDisconnects);
@@ -507,34 +489,41 @@ void onEventCallback(WebsocketsEvent event, String data) {
 // ============================================================
 
 bool connectWiFi() {
-    WiFi.mode(WIFI_STA);
+    markBootStage(BOOT_STAGE_WIFI_MODE_BEGIN);
+    bool wifiModeReady = WiFi.mode(WIFI_STA);
+    markBootStage(wifiModeReady ? BOOT_STAGE_WIFI_MODE_READY : BOOT_STAGE_WIFI_MODE_FAILED);
 
-    Serial.print("Connecting WiFi");
+    serialDiagnostic("WiFi setup       : starting");
 
+    markBootStage(BOOT_STAGE_WIFI_MANAGER_BEGIN);
     WiFiManager wifiManager;
 
     wifiManager.setConnectTimeout(20);
     wifiManager.setSaveConnectTimeout(20);
     wifiManager.setConfigPortalTimeout(300);
+    wifiManager.setAPCallback(onWiFiManagerAPStarted);
 
     wifiProvisioningActive = true;
 
+    markBootStage(BOOT_STAGE_STORED_WIFI_BEGIN);
     bool connected = wifiManager.autoConnect("Elegoo-Monitor-Setup");
 
     wifiProvisioningActive = false;
 
     if (!connected) {
-        Serial.println();
-        Serial.println("*** WIFI CONNECT FAILED ***");
+        markBootStage(BOOT_STAGE_WIFI_CONNECT_FAILED);
+        serialDiagnostic("*** WIFI CONNECT FAILED ***");
+        serialDiagnostic("WiFi result | status=%d last_result=%d mode=%d", (int)WiFi.status(),
+                         (int)wifiManager.getLastConxResult(), (int)WiFi.getMode());
 
         return false;
     }
 
-    Serial.println("*** WIFI CONNECTED ***");
+    markBootStage(BOOT_STAGE_WIFI_CONNECTED);
+    serialDiagnostic("*** WIFI CONNECTED ***");
 
-    Serial.print("IP: ");
-
-    Serial.println(WiFi.localIP());
+    String localIp = WiFi.localIP().toString();
+    serialDiagnostic("WiFi IP          : %s", localIp.c_str());
 
     headerStatusDirty = true;
 
@@ -570,7 +559,7 @@ void maintainWiFi() {
 
     lastWiFiReconnectAttempt = millis();
 
-    Serial.println("*** WIFI LOST - reconnecting ***");
+    serialDiagnostic("*** WIFI LOST - reconnecting ***");
 
     WiFi.disconnect();
 
@@ -638,27 +627,29 @@ bool tryWebSocketConnect() {
 
     String url = buildWebSocketURL();
 
-    Serial.println();
+    serialDiagnostic("WebSocket connect | attempt=%lu free_heap=%u",
+                     (unsigned long)connectAttempts, (unsigned int)ESP.getFreeHeap());
 
-    Serial.print("WebSocket attempt #");
-
-    Serial.println(connectAttempts);
-
-    Serial.print("Free heap before connect: ");
-
-    Serial.println(ESP.getFreeHeap());
+    bool observeInitialConnect = !initialWebSocketConnectObserved;
+    if (observeInitialConnect)
+        markBootStage(BOOT_STAGE_WEBSOCKET_CONNECT_BEGIN);
 
     unsigned long callStarted = millis();
     bool ok = client.connect(url);
     recordBlockingCall("WebsocketsClient.connect", millis() - callStarted);
+    initialWebSocketConnectObserved = true;
 
     if (ok) {
-        Serial.println("*** connect() SUCCESS ***");
+        if (observeInitialConnect)
+            markBootStage(BOOT_STAGE_WEBSOCKET_CONNECT_OPENED);
+        serialDiagnostic("*** connect() SUCCESS ***");
 
         return true;
     }
 
-    Serial.println("*** connect() FAILED ***");
+    if (observeInitialConnect)
+        markBootStage(BOOT_STAGE_WEBSOCKET_CONNECT_FAILED);
+    serialDiagnostic("*** connect() FAILED ***");
 
     resetWebSocketState();
 

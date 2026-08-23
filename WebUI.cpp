@@ -9,6 +9,8 @@
 #include "StateTrace.h"
 #include "Version.h"
 #include "Weather.h"
+#include "BootStage.h"
+#include "TouchInput.h"
 
 #include <ESPmDNS.h>
 #include <freertos/FreeRTOS.h>
@@ -191,6 +193,16 @@ void writeStatusJson(WiFiClient& client) {
     jsonField(client, "bootCount", String(bootCount), first);
     jsonField(client, "uptime", getUptimeString(), first);
     jsonField(client, "resetReason", resetReasonWithCode(lastResetReason), first);
+    jsonField(client, "bootStage", bootStageText(getCurrentBootStage()), first);
+    jsonField(client, "bootStageCode", String((uint8_t)getCurrentBootStage()), first);
+    jsonField(client, "bootStageDisplay",
+              String(bootStageText(getCurrentBootStage())) + " (" +
+                  String((uint8_t)getCurrentBootStage()) + ")",
+              first);
+    jsonField(client, "previousBootStage", bootStageText(getPreviousBootStage()), first);
+    jsonField(client, "previousBootStageCode", String((uint8_t)getPreviousBootStage()), first);
+    jsonField(client, "bootStagePersistence",
+              isBootStagePersistenceAvailable() ? "AVAILABLE" : "UNAVAILABLE", first);
     jsonField(client, "freeHeap", String(ESP.getFreeHeap()) + " bytes", first);
     jsonField(client, "minimumFreeHeap", String(ESP.getMinFreeHeap()) + " bytes", first);
     jsonField(client, "maximumLoopDuration", String(getMaximumLoopDuration()) + " ms", first);
@@ -198,6 +210,16 @@ void writeStatusJson(WiFiClient& client) {
     jsonField(client, "loopOver500Ms", String(getLoopOver500MsCount()), first);
     jsonField(client, "loopOver1Second", String(getLoopOver1SecondCount()), first);
     jsonField(client, "loopOver5Seconds", String(getLoopOver5SecondsCount()), first);
+    jsonField(client, "touchDetected", touchDetected() ? "INITIALIZED" : "NOT INITIALIZED", first);
+    jsonField(client, "touchCalibration", touchCalibrationStatus(), first);
+    jsonField(client, "touchRawXRange",
+              String(appConfig.touchRawXMin) + " - " + String(appConfig.touchRawXMax), first);
+    jsonField(client, "touchRawYRange",
+              String(appConfig.touchRawYMin) + " - " + String(appConfig.touchRawYMax), first);
+    jsonField(client, "touchAxisOrientation",
+              appConfig.touchSwapAxes ? "SWAPPED" : "NORMAL", first);
+    jsonField(client, "touchInvertX", appConfig.touchInvertX ? "YES" : "NO", first);
+    jsonField(client, "touchInvertY", appConfig.touchInvertY ? "YES" : "NO", first);
     client.print('}');
 }
 
@@ -236,6 +258,16 @@ void showStatus(WiFiClient& client) {
     statusRow(client, "Boot count", String(bootCount), "", "bootCount");
     statusRow(client, "Uptime", getUptimeString(), "", "uptime");
     statusRow(client, "Reset reason", resetReasonWithCode(lastResetReason), "", "resetReason");
+    statusRow(client, "Current boot stage",
+              String(bootStageText(getCurrentBootStage())) + " (" +
+                  String((uint8_t)getCurrentBootStage()) + ")",
+              "", "bootStageDisplay");
+    statusRow(client, "Previous boot last stage",
+              String(bootStageText(getPreviousBootStage())) + " (" +
+                  String((uint8_t)getPreviousBootStage()) + ")");
+    statusRow(client, "Boot-stage persistence",
+              isBootStagePersistenceAvailable() ? "AVAILABLE" : "UNAVAILABLE", "",
+              "bootStagePersistence");
     statusRow(client, "Free heap", String(ESP.getFreeHeap()) + " bytes", "", "freeHeap");
     statusRow(client, "Minimum free heap", String(ESP.getMinFreeHeap()) + " bytes", "",
               "minimumFreeHeap");
@@ -267,6 +299,16 @@ void showDiagnostics(WiFiClient& client) {
     statusRow(client, "Uptime", getUptimeString(), "", "uptime");
     statusRow(client, "Boot count", String(bootCount), "", "bootCount");
     statusRow(client, "Reset reason", resetReasonWithCode(lastResetReason), "", "resetReason");
+    statusRow(client, "Current boot stage",
+              String(bootStageText(getCurrentBootStage())) + " (" +
+                  String((uint8_t)getCurrentBootStage()) + ")",
+              "", "bootStageDisplay");
+    statusRow(client, "Previous boot last stage",
+              String(bootStageText(getPreviousBootStage())) + " (" +
+                  String((uint8_t)getPreviousBootStage()) + ")");
+    statusRow(client, "Boot-stage persistence",
+              isBootStagePersistenceAvailable() ? "AVAILABLE" : "UNAVAILABLE", "",
+              "bootStagePersistence");
     statusRow(client, "Free heap", String(ESP.getFreeHeap()) + " bytes", "", "freeHeap");
     statusRow(client, "Minimum free heap", String(ESP.getMinFreeHeap()) + " bytes", "",
               "minimumFreeHeap");
@@ -279,6 +321,25 @@ void showDiagnostics(WiFiClient& client) {
     statusRow(client, "Loops over 5 seconds", String(getLoopOver5SecondsCount()), "",
               "loopOver5Seconds");
     client.print(F("</table></section>"));
+    diagnosticSection(client, "Touch");
+    statusRow(client, "Touch detected", touchDetected() ? "INITIALIZED" : "NOT INITIALIZED", "",
+              "touchDetected");
+    statusRow(client, "Calibration", touchCalibrationStatus(), "", "touchCalibration");
+    statusRow(client, "Raw X range",
+              String(appConfig.touchRawXMin) + " - " + String(appConfig.touchRawXMax), "",
+              "touchRawXRange");
+    statusRow(client, "Raw Y range",
+              String(appConfig.touchRawYMin) + " - " + String(appConfig.touchRawYMax), "",
+              "touchRawYRange");
+    statusRow(client, "Axis orientation", appConfig.touchSwapAxes ? "SWAPPED" : "NORMAL", "",
+              "touchAxisOrientation");
+    statusRow(client, "Invert X", appConfig.touchInvertX ? "YES" : "NO", "", "touchInvertX");
+    statusRow(client, "Invert Y", appConfig.touchInvertY ? "YES" : "NO", "", "touchInvertY");
+    client.print(F("</table><form method='post' action='/touch-calibration/start'><button "
+                   "type='submit'>"));
+    client.print(touchCalibrationValid() ? F("Recalibrate Touch") : F("Calibrate Touch"));
+    client.print(F("</button></form><form method='post' action='/touch-calibration/cancel'>"
+                   "<button type='submit'>Cancel touch calibration</button></form></section>"));
     diagnosticSection(client, "WiFi");
     statusRow(client, "Connection", wifi ? "CONNECTED" : "OFFLINE", wifi ? "ok" : "bad", "wifiState");
     statusRow(client, "SSID", wifiValue(wifi, WiFi.SSID()), "", "wifiSsid");
@@ -556,6 +617,21 @@ void simplePage(WiFiClient& client, int code, const char* title, const char* mes
     pageEnd(client);
 }
 
+void startTouchCalibrationPage(WiFiClient& client) {
+    bool started = startTouchCalibration();
+    simplePage(client, started ? 200 : 500,
+               started ? "Touch calibration started" : "Touch calibration unavailable",
+               started ? "Follow the four targets shown on the TFT. Existing calibration is kept "
+                         "until the new measurements pass validation and are saved."
+                       : "Touch was not detected or calibration is already active.");
+}
+
+void cancelTouchCalibrationPage(WiFiClient& client) {
+    cancelTouchCalibration();
+    simplePage(client, 200, "Touch calibration cancelled",
+               "The previous saved calibration remains unchanged.");
+}
+
 void handleRequest(WiFiClient& client) {
     unsigned long requestStarted = millis();
 
@@ -613,6 +689,10 @@ void handleRequest(WiFiClient& client) {
         showMaintenance(client);
     else if (method == "GET" && path == "/diagnostics")
         showDiagnostics(client);
+    else if (method == "POST" && path == "/touch-calibration/start")
+        startTouchCalibrationPage(client);
+    else if (method == "POST" && path == "/touch-calibration/cancel")
+        cancelTouchCalibrationPage(client);
     else if (method == "GET" && path == "/reset-wifi-confirm")
         showWiFiResetConfirmation(client);
     else if (method == "GET" && path == "/state-trace/download")
@@ -661,12 +741,20 @@ void handleRequest(WiFiClient& client) {
 void webUITask(void* parameter) {
     while (true) {
         if (!serverStarted && !isWiFiProvisioningActive() && WiFi.status() == WL_CONNECTED) {
+            markBootStage(BOOT_STAGE_WEB_SERVER_BEGIN);
             server.begin();
             serverStarted = true;
+            markBootStage(BOOT_STAGE_WEB_SERVER_READY);
 
             unsigned long callStarted = millis();
-            if (appConfig.deviceName[0] != '\0' && MDNS.begin(appConfig.deviceName))
+            markBootStage(BOOT_STAGE_MDNS_BEGIN);
+            bool mdnsReady = appConfig.deviceName[0] != '\0' && MDNS.begin(appConfig.deviceName);
+            if (mdnsReady) {
                 MDNS.addService("http", "tcp", 80);
+                markBootStage(BOOT_STAGE_MDNS_READY);
+            } else {
+                markBootStage(BOOT_STAGE_MDNS_FAILED);
+            }
             recordBlockingCall("MDNS.begin", millis() - callStarted);
         }
 

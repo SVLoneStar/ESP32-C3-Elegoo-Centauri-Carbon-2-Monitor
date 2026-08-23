@@ -1,6 +1,8 @@
 #include "Diagnostics.h"
 #include "PrinterData.h"
 #include "StateTrace.h"
+#include "SerialLog.h"
+
 
 namespace {
 uint32_t maximumLoopDuration = 0;
@@ -8,6 +10,15 @@ uint32_t loopOver100MsCount = 0;
 uint32_t loopOver500MsCount = 0;
 uint32_t loopOver1SecondCount = 0;
 uint32_t loopOver5SecondsCount = 0;
+}
+
+void serialDiagnostic(const char* format, ...) {
+    char line[256];
+    va_list arguments;
+    va_start(arguments, format);
+    vsnprintf(line, sizeof(line), format, arguments);
+    va_end(arguments);
+    serialLogLine(line);
 }
 
 // BOOT COUNTER
@@ -91,18 +102,15 @@ String resetReasonWithCode(esp_reset_reason_t reason) {
 void printResetReason() {
     lastResetReason = esp_reset_reason();
 
-    Serial.println();
-    Serial.println("========== LAST RESET ==========");
+    if (!beginSerialLogBlock())
+        return;
 
-    Serial.print("Boot count   : ");
-
-    Serial.println(bootCount);
-
-    Serial.print("Reset reason : ");
-
-    Serial.println(resetReasonWithCode(lastResetReason));
-
-    Serial.println("================================");
+    serialLogBlockLine("========== LAST RESET ==========");
+    serialLogBlockLinef("Boot count   : %lu", (unsigned long)bootCount);
+    String resetReason = resetReasonWithCode(lastResetReason);
+    serialLogBlockLinef("Reset reason : %s", resetReason.c_str());
+    serialLogBlockLine("================================");
+    endSerialLogBlock();
 }
 
 // ============================================================
@@ -139,8 +147,7 @@ void recordBlockingCall(const char* functionName, unsigned long elapsedMs) {
 
     char detail[112];
     snprintf(detail, sizeof(detail), "function=%s elapsed_ms=%lu", functionName, elapsedMs);
-    Serial.print("BLOCKING_CALL | ");
-    Serial.println(detail);
+    serialDiagnostic("BLOCKING_CALL | %s", detail);
     stateTraceLog("BLOCKING_CALL", detail);
 }
 
@@ -181,81 +188,34 @@ uint32_t getLoopOver5SecondsCount() {
 // ============================================================
 
 void printStatus() {
-    Serial.println();
-    Serial.println("============ STATUS ============");
+    if (!beginSerialLogBlock())
+        return;
 
-    Serial.print("Boot count       : ");
-
-    Serial.println(bootCount);
-
-    Serial.print("Last reset       : ");
-
-    Serial.println(resetReasonWithCode(lastResetReason));
-
-    Serial.print("Uptime           : ");
-
-    Serial.println(getUptimeString());
-
-    Serial.print("Printer state    : ");
-
-    Serial.println(printerStateText(getPrinterState()));
-
-    Serial.print("WiFi             : ");
-
-    Serial.println(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "OFFLINE");
-
-    Serial.print("WebSocket        : ");
-
-    Serial.println(wsConnected ? "CONNECTED" : "OFFLINE");
-
-    Serial.print("Authenticated    : ");
-
-    Serial.println(authenticated ? "YES" : "NO");
-
-    Serial.print("Subscribed       : ");
-
-    Serial.println(subscribed ? "YES" : "NO");
-
-    Serial.print("Connect attempts : ");
-
-    Serial.println(connectAttempts);
-
-    Serial.print("Successful       : ");
-
-    Serial.println(successfulConnects);
-
-    Serial.print("Disconnects      : ");
-
-    Serial.println(disconnectCount);
-
-    Serial.print("WS messages      : ");
-
-    Serial.println(messageCount);
-
-    Serial.print("Printer triggers : ");
-
-    Serial.println(triggerCount);
-
-    Serial.print("Free heap        : ");
-
-    Serial.println(ESP.getFreeHeap());
-
-    Serial.print("Min free heap    : ");
-
-    Serial.println(ESP.getMinFreeHeap());
-
-    Serial.print("Max loop ms      : ");
-
-    Serial.println(maximumLoopDuration);
-
-    Serial.print("Loop overruns    : >100=");
-    Serial.print(loopOver100MsCount);
-    Serial.print(" >500=");
-    Serial.print(loopOver500MsCount);
-    Serial.print(" >1000=");
-    Serial.print(loopOver1SecondCount);
-    Serial.print(" >5000=");
-    Serial.println(loopOver5SecondsCount);
-
-    Serial.println("================================");
+    serialLogBlockLine("");
+    serialLogBlockLine("============ STATUS ============");
+    serialLogBlockLinef("Boot count       : %lu", (unsigned long)bootCount);
+    String resetReason = resetReasonWithCode(lastResetReason);
+    serialLogBlockLinef("Last reset       : %s", resetReason.c_str());
+    String uptime = getUptimeString();
+    serialLogBlockLinef("Uptime           : %s", uptime.c_str());
+    serialLogBlockLinef("Printer state    : %s", printerStateText(getPrinterState()));
+    serialLogBlockLinef("WiFi             : %s",
+                        WiFi.status() == WL_CONNECTED ? "CONNECTED" : "OFFLINE");
+    serialLogBlockLinef("WebSocket        : %s", wsConnected ? "CONNECTED" : "OFFLINE");
+    serialLogBlockLinef("Authenticated    : %s", authenticated ? "YES" : "NO");
+    serialLogBlockLinef("Subscribed       : %s", subscribed ? "YES" : "NO");
+    serialLogBlockLinef("Connect attempts : %lu", (unsigned long)connectAttempts);
+    serialLogBlockLinef("Successful       : %lu", (unsigned long)successfulConnects);
+    serialLogBlockLinef("Disconnects      : %lu", (unsigned long)disconnectCount);
+    serialLogBlockLinef("WS messages      : %lu", (unsigned long)messageCount);
+    serialLogBlockLinef("Printer triggers : %lu", (unsigned long)triggerCount);
+    serialLogBlockLinef("Free heap        : %u", (unsigned int)ESP.getFreeHeap());
+    serialLogBlockLinef("Min free heap    : %u", (unsigned int)ESP.getMinFreeHeap());
+    serialLogBlockLinef(
+        "Loop timing      : max=%lums >100ms=%lu >500ms=%lu >1000ms=%lu >5000ms=%lu",
+        (unsigned long)maximumLoopDuration, (unsigned long)loopOver100MsCount,
+        (unsigned long)loopOver500MsCount, (unsigned long)loopOver1SecondCount,
+        (unsigned long)loopOver5SecondsCount);
+    serialLogBlockLine("================================");
+    endSerialLogBlock();
 }

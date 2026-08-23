@@ -1,6 +1,8 @@
 #pragma once
 #include "AppState.h"
 
+void serialDiagnostic(const char* format, ...);
+
 void initBootCounter();
 String resetReasonText(esp_reset_reason_t reason);
 String resetReasonWithCode(esp_reset_reason_t reason);

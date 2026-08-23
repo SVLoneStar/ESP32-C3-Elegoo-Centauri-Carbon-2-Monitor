@@ -49,9 +49,25 @@ The sketch targets an ESP32-C3 connected to an ILI9341 320×240 TFT in landscape
 | CS | GPIO 7 | `TFT_CS` | Display chip select |
 | DC / RS | GPIO 3 | `TFT_DC` | Data/command select |
 | RST | GPIO 1 | `TFT_RST` | Display reset |
-| MISO / SDO | Not connected by the sketch | — | SPI is initialized with MISO disabled |
+| MISO / SDO | GPIO 5 | `TFT_MISO` | Shared SPI MISO for the touch controller; the TFT does not use it |
 
-The firmware uses the ESP32-C3 `FSPI` peripheral and TFT rotation `3`. Power, ground, and backlight wiring are not defined in the source; follow the electrical requirements of your specific modules. No touch-controller pins or touch input are implemented.
+The firmware uses the ESP32-C3 `FSPI` peripheral and TFT rotation `3`. Power, ground, and backlight wiring are not defined in the source; follow the electrical requirements of your specific modules.
+
+### Resistive touch controller — Phase 1
+
+Phase 1 provides non-blocking raw touch reads, calibration diagnostics, and simple tap detection. It does not yet provide gestures, printer controls, maintenance actions, or a dedicated on-device diagnostics page.
+
+| Touch signal | ESP32-C3 pin | Notes |
+|---|---:|---|
+| T_CLK | GPIO 4 | Shared with TFT SCK |
+| T_DIN | GPIO 6 | Shared with TFT MOSI |
+| T_DO | GPIO 5 | Shared SPI MISO |
+| T_CS | GPIO 10 | Dedicated touch chip select |
+| T_IRQ | Not connected | Phase 1 uses non-blocking polling |
+
+The TFT and XPT2046 use separate active-low chip-select lines. Touch transactions run at 2 MHz through the installed `XPT2046_Touchscreen` library.
+
+Touch calibration is intentionally disabled until measured values are available. With `TOUCH_VERBOSE_LOGGING` enabled in `TouchInput.cpp`, press the active screen edges and corners and record the reported raw X/Y values. Enter the measured limits in `TOUCH_RAW_X_MIN`, `TOUCH_RAW_X_MAX`, `TOUCH_RAW_Y_MIN`, and `TOUCH_RAW_Y_MAX`; adjust `TOUCH_SWAP_AXES`, `TOUCH_INVERT_X`, and `TOUCH_INVERT_Y` as required for rotation 3, then set `TOUCH_CALIBRATION_VALID` to `true`. Disable verbose logging after calibration.
 
 ## Software requirements
 
@@ -63,6 +79,7 @@ The firmware uses the ESP32-C3 `FSPI` peripheral and TFT rotation `3`. Power, gr
 | ArduinoJson | REST, WebSocket, weather, and configuration JSON | Not pinned |
 | ArduinoWebsockets | Home Assistant WebSocket client | Not pinned |
 | WiFiManager | WiFi provisioning and credential reset | 2.0.17, or a compatible ESP32-capable release |
+| XPT2046_Touchscreen | Phase 1 resistive touch polling and raw samples | 1.4, or a compatible release |
 
 The GFX fonts used by the sketch are supplied by Adafruit GFX. PlatformIO is not used.
 

@@ -23,5 +23,6 @@ void updateIdleDate();
 void updateIdleLargeClock();
 void updateIdleConnection();
 void updateIdleDiagnostics();
+void drawOnDeviceDiagnostics();
 void checkTimeChanges();
 void updateDisplay();

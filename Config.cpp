@@ -36,6 +36,15 @@ void setConfigDefaults(AppConfig& config) {
     config.etaRemainingSwitchIntervalMs = 5000UL;
 
     config.stateTraceEnabled = true;
+
+    config.touchCalibrationValid = true;
+    config.touchRawXMin = 410;
+    config.touchRawXMax = 3850;
+    config.touchRawYMin = 370;
+    config.touchRawYMax = 3740;
+    config.touchSwapAxes = false;
+    config.touchInvertX = false;
+    config.touchInvertY = false;
 }
 
 bool hasValidHomeAssistantConfig(const AppConfig& config) {

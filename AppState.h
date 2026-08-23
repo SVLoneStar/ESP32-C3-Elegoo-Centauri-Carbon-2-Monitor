@@ -34,6 +34,7 @@ extern char ENTITY_BED_TEMP[96];
 extern char ENTITY_PRINT_SPEED[96];
 
 #define TFT_SCK 4
+#define TFT_MISO 5
 #define TFT_MOSI 6
 #define TFT_CS 7
 #define TFT_DC 3

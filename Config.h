@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 
-const uint16_t CURRENT_CONFIG_VERSION = 2;
+const uint16_t CURRENT_CONFIG_VERSION = 3;
 
 struct AppConfig {
     uint16_t configVersion;
@@ -16,6 +16,14 @@ struct AppConfig {
     uint32_t weatherRefreshIntervalMs;
     uint32_t etaRemainingSwitchIntervalMs;
     bool stateTraceEnabled;
+    bool touchCalibrationValid;
+    int16_t touchRawXMin;
+    int16_t touchRawXMax;
+    int16_t touchRawYMin;
+    int16_t touchRawYMax;
+    bool touchSwapAxes;
+    bool touchInvertX;
+    bool touchInvertY;
 };
 
 extern AppConfig appConfig;

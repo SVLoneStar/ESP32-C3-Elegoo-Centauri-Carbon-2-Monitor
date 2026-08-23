@@ -5,6 +5,9 @@
 #include "TimeHelpers.h"
 #include "Version.h"
 #include "Weather.h"
+#include "HomeAssistant.h"
+#include "BootStage.h"
+#include "TouchInput.h"
 
 // CENTER TEXT
 // ============================================================
@@ -30,6 +33,68 @@ void drawCenteredText(const String& text, int baselineY, const GFXfont* font, ui
     tft.setCursor(x, baselineY);
 
     tft.print(text);
+}
+
+void drawDiagnosticsTextLine(const String& text, int baselineY, uint16_t color = C_TEXT) {
+    tft.setFont(&FreeSans9pt7b);
+    tft.setTextColor(color, C_BG);
+    tft.setCursor(6, baselineY);
+    tft.print(text);
+}
+
+void drawOnDeviceDiagnostics() {
+    tft.fillScreen(C_BG);
+    drawCenteredText(FIRMWARE_IDENTIFIER, 23, &FreeSansBold9pt7b, C_CYAN);
+    tft.drawFastHLine(0, 31, 320, C_DIM);
+
+    String line = "Uptime: ";
+    line += getUptimeString();
+    line += "  Boot: ";
+    line += String(bootCount);
+    drawDiagnosticsTextLine(line, 51);
+
+    line = "Reset: ";
+    line += resetReasonWithCode(lastResetReason);
+    drawDiagnosticsTextLine(line, 73);
+
+    bool wifiConnected = WiFi.status() == WL_CONNECTED;
+    line = "WiFi: ";
+    line += wifiConnected ? "CONNECTED" : "OFFLINE";
+    line += "  RSSI: ";
+    line += wifiConnected ? String(WiFi.RSSI()) + " dBm" : "--";
+    drawDiagnosticsTextLine(line, 95, wifiConnected ? C_GREEN : C_RED);
+
+    line = "HA: WS ";
+    line += wsConnected ? "UP" : "DOWN";
+    line += "  Auth ";
+    line += authenticated ? "YES" : "NO";
+    line += "  Sub ";
+    line += subscribed ? "YES" : "NO";
+    drawDiagnosticsTextLine(line, 117, wsConnected && authenticated && subscribed ? C_GREEN : C_RED);
+
+    line = "WS: Try ";
+    line += String(connectAttempts);
+    line += "  Disc ";
+    line += String(disconnectCount);
+    line += "  Early ";
+    line += String(getConsecutiveEarlyDisconnectCount());
+    drawDiagnosticsTextLine(line, 139);
+
+    line = "Heap: ";
+    line += String(ESP.getFreeHeap());
+    line += "  Min: ";
+    line += String(ESP.getMinFreeHeap());
+    drawDiagnosticsTextLine(line, 161);
+
+    line = "Printer: ";
+    line += printerStateText(getPrinterState());
+    drawDiagnosticsTextLine(line, 183);
+
+    line = "Stage: ";
+    line += bootStageText(getCurrentBootStage());
+    drawDiagnosticsTextLine(line, 205);
+
+    drawCenteredText("Tap to return", 229, &FreeSans9pt7b, C_DIM);
 }
 
 // ICONS
@@ -569,6 +634,14 @@ void checkTimeChanges() {
 // ============================================================
 
 void updateDisplay() {
+    if (touchDiagnosticsActive()) {
+        if (fullRedrawNeeded) {
+            drawOnDeviceDiagnostics();
+            fullRedrawNeeded = false;
+        }
+        return;
+    }
+
     // ----------------------------------------------------------
     // MODE
     // ----------------------------------------------------------

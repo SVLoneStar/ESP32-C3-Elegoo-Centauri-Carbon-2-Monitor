@@ -20,6 +20,9 @@
 #include "ConfigStore.h"
 #include "WebUI.h"
 #include "StateTrace.h"
+#include "TouchInput.h"
+#include "BootStage.h"
+#include "SerialLog.h"
 
 // SETUP
 // ============================================================
@@ -27,10 +30,15 @@
 void setup() {
     unsigned long callStarted;
 
+    initializeBootStageTracking();
+    markBootStage(BOOT_STAGE_SERIAL_BEGIN);
     Serial.begin(115200);
 #if ARDUINO_USB_CDC_ON_BOOT
     Serial.setTxTimeoutMs(0);
 #endif
+    initializeSerialLog();
+    enableBootStageSerialLogging();
+    markBootStage(BOOT_STAGE_SERIAL_READY);
 
     callStarted = millis();
     initBootCounter();
@@ -40,9 +48,11 @@ void setup() {
     printResetReason();
     recordBlockingCall("printResetReason", millis() - callStarted);
 
+    markBootStage(BOOT_STAGE_CONFIG_BEGIN);
     callStarted = millis();
     initializeConfigStore();
     recordBlockingCall("initializeConfigStore", millis() - callStarted);
+    markBootStage(BOOT_STAGE_CONFIG_READY);
 
     callStarted = millis();
     initializePrinterEntityIds();
@@ -51,14 +61,18 @@ void setup() {
     callStarted = millis();
     initializeStateTrace();
     recordBlockingCall("initializeStateTrace", millis() - callStarted);
+    enableBootStageTraceLogging();
+    markBootStage(BOOT_STAGE_TRACE_READY);
 
     callStarted = millis();
     stateTraceLogBoot(bootCount, resetReasonText(lastResetReason));
     recordBlockingCall("stateTraceLogBoot", millis() - callStarted);
 
+    markBootStage(BOOT_STAGE_WEB_UI_TASK_BEGIN);
     callStarted = millis();
     initializeWebUI();
     recordBlockingCall("initializeWebUI", millis() - callStarted);
+    markBootStage(BOOT_STAGE_WEB_UI_TASK_READY);
 
     callStarted = millis();
     initializePrinter();
@@ -72,8 +86,14 @@ void setup() {
     // TFT
     // ----------------------------------------------------------
 
+    markBootStage(BOOT_STAGE_TFT_BEGIN);
     callStarted = millis();
-    tftSPI.begin(TFT_SCK, -1, TFT_MOSI, TFT_CS);
+    pinMode(TFT_CS, OUTPUT);
+    digitalWrite(TFT_CS, HIGH);
+    pinMode(TOUCH_CS, OUTPUT);
+    digitalWrite(TOUCH_CS, HIGH);
+
+    tftSPI.begin(TFT_SCK, TFT_MISO, TFT_MOSI, TFT_CS);
 
     tft.begin();
 
@@ -83,14 +103,21 @@ void setup() {
 
     tft.fillScreen(C_BG);
     recordBlockingCall("initializeTFT", millis() - callStarted);
+    markBootStage(BOOT_STAGE_TFT_READY);
+
+    callStarted = millis();
+    initializeTouchInput();
+    recordBlockingCall("initializeTouchInput", millis() - callStarted);
 
     // ----------------------------------------------------------
     // CALLBACKS
     // ----------------------------------------------------------
 
+    markBootStage(BOOT_STAGE_WEBSOCKET_INIT_BEGIN);
     client.onMessage(onMessageCallback);
 
     client.onEvent(onEventCallback);
+    markBootStage(BOOT_STAGE_WEBSOCKET_INIT_READY);
 
     // ----------------------------------------------------------
     // WIFI + INITIAL STATES
@@ -101,13 +128,17 @@ void setup() {
     recordBlockingCall("connectWiFi", millis() - callStarted);
 
     if (wifiConnected) {
+        markBootStage(BOOT_STAGE_NTP_BEGIN);
         callStarted = millis();
         startNTP();
         recordBlockingCall("startNTP", millis() - callStarted);
+        markBootStage(BOOT_STAGE_NTP_READY);
 
+        markBootStage(BOOT_STAGE_INITIAL_REST_BEGIN);
         callStarted = millis();
         loadInitialPrinterData();
         recordBlockingCall("loadInitialPrinterData", millis() - callStarted);
+        markBootStage(BOOT_STAGE_INITIAL_REST_COMPLETE);
     }
 
     // ----------------------------------------------------------
@@ -121,6 +152,7 @@ void setup() {
     currentDisplayMode = MODE_UNKNOWN;
 
     fullRedrawNeeded = true;
+    markBootStage(BOOT_STAGE_SETUP_COMPLETE);
 }
 
 // ============================================================
@@ -146,7 +178,15 @@ void loop() {
     maintainWeather();
     recordBlockingCall("maintainWeather", millis() - callStarted);
 
-    if (millis() - lastDisplayUpdate >= 100) {
+    callStarted = millis();
+    maintainTouchInput();
+    recordBlockingCall("maintainTouchInput", millis() - callStarted);
+
+    callStarted = millis();
+    maintainTouchNavigation();
+    recordBlockingCall("maintainTouchNavigation", millis() - callStarted);
+
+    if (!touchCalibrationActive() && millis() - lastDisplayUpdate >= 100) {
         lastDisplayUpdate = millis();
 
         callStarted = millis();

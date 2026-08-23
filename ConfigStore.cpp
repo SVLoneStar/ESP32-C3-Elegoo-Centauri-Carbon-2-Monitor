@@ -43,6 +43,13 @@ void sanitizeConfiguration(AppConfig& config) {
         config.etaRemainingSwitchIntervalMs > 60000UL) {
         config.etaRemainingSwitchIntervalMs = 5000UL;
     }
+
+    if (config.touchRawXMin < 0 || config.touchRawXMax > 4095 ||
+        config.touchRawYMin < 0 || config.touchRawYMax > 4095 ||
+        config.touchRawXMax - config.touchRawXMin < 500 ||
+        config.touchRawYMax - config.touchRawYMin < 500) {
+        config.touchCalibrationValid = false;
+    }
 }
 } // namespace
 
@@ -120,6 +127,16 @@ bool loadConfiguration() {
 
     loaded.stateTraceEnabled = doc["stateTraceEnabled"] | loaded.stateTraceEnabled;
 
+    loaded.touchCalibrationValid =
+        doc["touchCalibrationValid"] | loaded.touchCalibrationValid;
+    loaded.touchRawXMin = doc["touchRawXMin"] | loaded.touchRawXMin;
+    loaded.touchRawXMax = doc["touchRawXMax"] | loaded.touchRawXMax;
+    loaded.touchRawYMin = doc["touchRawYMin"] | loaded.touchRawYMin;
+    loaded.touchRawYMax = doc["touchRawYMax"] | loaded.touchRawYMax;
+    loaded.touchSwapAxes = doc["touchSwapAxes"] | loaded.touchSwapAxes;
+    loaded.touchInvertX = doc["touchInvertX"] | loaded.touchInvertX;
+    loaded.touchInvertY = doc["touchInvertY"] | loaded.touchInvertY;
+
     sanitizeConfiguration(loaded);
 
     appConfig = loaded;
@@ -153,6 +170,14 @@ bool saveConfiguration(const AppConfig& config) {
     doc["weatherRefreshIntervalMs"] = saved.weatherRefreshIntervalMs;
     doc["etaRemainingSwitchIntervalMs"] = saved.etaRemainingSwitchIntervalMs;
     doc["stateTraceEnabled"] = saved.stateTraceEnabled;
+    doc["touchCalibrationValid"] = saved.touchCalibrationValid;
+    doc["touchRawXMin"] = saved.touchRawXMin;
+    doc["touchRawXMax"] = saved.touchRawXMax;
+    doc["touchRawYMin"] = saved.touchRawYMin;
+    doc["touchRawYMax"] = saved.touchRawYMax;
+    doc["touchSwapAxes"] = saved.touchSwapAxes;
+    doc["touchInvertX"] = saved.touchInvertX;
+    doc["touchInvertY"] = saved.touchInvertY;
 
     File file = LittleFS.open(CONFIG_TEMP_PATH, "w");
 

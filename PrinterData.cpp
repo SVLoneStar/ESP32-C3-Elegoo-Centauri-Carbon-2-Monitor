@@ -1,6 +1,7 @@
 #include "PrinterData.h"
 #include "Config.h"
 #include "StateTrace.h"
+#include "Diagnostics.h"
 
 namespace {
 const unsigned long PRINT_COMPLETE_DISPLAY_DURATION_MS = 60000UL;
@@ -103,7 +104,7 @@ void observeStatusValue(const char* source, const String& rawValue) {
 
     if (observedUnknownStatusCount >= MAX_OBSERVED_UNKNOWN_STATUSES) {
         if (!unknownStatusCapacityReported) {
-            Serial.println("Unknown printer status log capacity reached");
+            serialDiagnostic("Unknown printer status log capacity reached");
 
             unknownStatusCapacityReported = true;
         }
@@ -116,8 +117,7 @@ void observeStatusValue(const char* source, const String& rawValue) {
 
     observedUnknownStatusCount++;
 
-    Serial.print("Unmapped printer status: ");
-    Serial.println(observation);
+    serialDiagnostic("Unmapped printer status: %s", observation);
 }
 
 StatusSignal resolveStatusSignal() {
@@ -190,10 +190,7 @@ void transitionTo(PrinterState nextState) {
 
     const char* nextStateText = printerStateText(nextState);
 
-    Serial.print("Printer state: ");
-    Serial.print(previousStateText);
-    Serial.print(" -> ");
-    Serial.println(nextStateText);
+    serialDiagnostic("Printer state: %s -> %s", previousStateText, nextStateText);
 
     String transition = previousStateText;
     transition += " -> ";
