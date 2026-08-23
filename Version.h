@@ -1,10 +1,22 @@
 #pragma once
 
-// Arduino IDE does not provide a project-local pre-build hook for Git metadata.
-// Update the hash and manual dirty flag as described in README.md before builds.
 #define FIRMWARE_VERSION "0.1.0-dev"
-#define FIRMWARE_GIT_HASH "72f61d8"
-#define FIRMWARE_BUILD_DIRTY 0
+
+#ifndef __has_include
+#define __has_include(header) 0
+#endif
+
+#if __has_include("GeneratedVersion.h")
+#include "GeneratedVersion.h"
+#else
+#define GENERATED_GIT_HASH "unknown"
+#define GENERATED_GIT_DIRTY 0
+#define GENERATED_GIT_BRANCH "unknown"
+#endif
+
+#define FIRMWARE_GIT_HASH GENERATED_GIT_HASH
+#define FIRMWARE_BUILD_DIRTY GENERATED_GIT_DIRTY
+#define FIRMWARE_GIT_BRANCH GENERATED_GIT_BRANCH
 #define FIRMWARE_BUILD_DATE __DATE__
 #define FIRMWARE_BUILD_TIME __TIME__
 

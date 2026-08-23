@@ -134,12 +134,13 @@ The Web UI never displays the stored token back in plaintext. The password field
 
 1. Install the board package and required libraries.
 2. Select the required Arduino IDE settings above.
-3. Compile and upload `ESP32_C3_ILI9341_Elegoo_Monitor.ino`.
-4. The ESP32-C3 first attempts to use WiFi credentials already stored by its WiFi subsystem.
-5. If startup connection fails, join **Elegoo-Monitor-Setup** and use its WiFi-only captive portal.
-6. Open the Web UI using the IP printed over Serial or the default `http://cc2-monitor.local/`. If the name was previously changed, use the configured mDNS name.
-7. In **Configuration**, enter the HA host/IP, port, LLAT, POSIX timezone, printer entity prefix, and optional weather entity.
-8. Save, restart as instructed, then use **Status** to verify printer data, authentication, subscription, and weather.
+3. Run `powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` from the project root.
+4. Compile and upload `ESP32_C3_ILI9341_Elegoo_Monitor.ino`.
+5. The ESP32-C3 first attempts to use WiFi credentials already stored by its WiFi subsystem.
+6. If startup connection fails, join **Elegoo-Monitor-Setup** and use its WiFi-only captive portal.
+7. Open the Web UI using the IP printed over Serial or the default `http://cc2-monitor.local/`. If the name was previously changed, use the configured mDNS name.
+8. In **Configuration**, enter the HA host/IP, port, LLAT, POSIX timezone, printer entity prefix, and optional weather entity.
+9. Save, restart as instructed, then use **Status** to verify printer data, authentication, subscription, and weather.
 
 The Web UI remains independent of Home Assistant availability once WiFi is connected.
 
@@ -222,31 +223,35 @@ Use **Maintenance → Temporary state trace diagnostics** to see its size, downl
 
 ## Firmware versioning
 
-Metadata is maintained centrally in `Version.h`:
+The semantic firmware version remains manually maintained in `Version.h`:
 
 ```cpp
 #define FIRMWARE_VERSION "0.1.0-dev"
-#define FIRMWARE_GIT_HASH "c8445b1"
-#define FIRMWARE_BUILD_DIRTY 1
 ```
 
-- Dirty `1`: append `+`, meaning “based on this commit with additional uncommitted source changes.”
-- Clean `0`: omit `+` for a committed build.
+Git metadata is generated from the repository into the ignored `GeneratedVersion.h` file. Before
+every Arduino IDE compilation, run:
 
-The Arduino IDE workflow has no reliable project-local pre-build hook, so hash and dirty state are deliberately manual. Build date/time uses `__DATE__` and `__TIME__`.
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1
+```
 
-During development, keep the hash at the base commit and dirty set to `1`. Before a tested baseline:
+The script uses `git rev-parse --short HEAD`, `git status --porcelain`, and the current local branch.
+It writes only the short revision, dirty flag, and branch—never repository paths, remote URLs,
+usernames, or credentials. A dirty tree appends `+` to the displayed revision; a clean tree omits it.
+Compiler date/time continues to use `__DATE__` and `__TIME__`.
 
-1. Test the dirty build on hardware.
-2. Commit the tested changes.
-3. Run:
+Arduino IDE has no reliable project-local pre-build hook, so the prep command is an explicit build
+step. Codex builds must run `tools/build_prep.ps1` automatically immediately before invoking Arduino
+CLI. If `GeneratedVersion.h` is absent, compilation still succeeds and displays `unknown`; it never
+falls back to a stale hard-coded revision.
 
-   ```bash
-   git rev-parse --short HEAD
-   ```
+Before a tested baseline:
 
-4. Update the hash and set dirty to `0`.
-5. Compile and flash again, verify both displayed identifiers, then tag.
+1. Generate metadata and test the dirty build on hardware.
+2. Commit the tested source changes.
+3. Run `tools/build_prep.ps1` again so the new clean commit and state are embedded.
+4. Compile and flash again, verify both displayed identifiers, then tag.
 
 Suggested versions: `MAJOR.MINOR.PATCH` for stable, `MAJOR.MINOR.PATCH-dev` for development, and `MAJOR.MINOR.PATCH-test.N` for test builds.
 
@@ -266,13 +271,14 @@ Suggested versions: `MAJOR.MINOR.PATCH` for stable, `MAJOR.MINOR.PATCH-dev` for 
 | `TimeHelpers.h/.cpp` | NTP, timezone, clock, and date |
 | `Weather.h/.cpp` | Weather REST task, forecast cache, primitive icons, and weather-specific drawing |
 | `WebUI.h/.cpp` | HTTP status/configuration/maintenance UI, mDNS, and trace download |
-| `Version.h` | Firmware version, manual Git/dirty metadata, and compiler timestamp macros |
+| `Version.h` | Manual semantic version, generated-metadata fallback, and identifier macros |
+| `tools/build_prep.ps1` | Generates ignored Git revision, dirty state, and branch metadata before builds |
 
 ## Known limitations
 
 - Home Assistant and compatible entities from the Elegoo integration are required; there is no direct printer connection.
 - Huge APP has no OTA slot, so firmware upload is USB/serial only.
-- Git revision and dirty state are manually maintained.
+- Arduino IDE requires an explicit `tools/build_prep.ps1` step before compiling Git metadata.
 - Printer entity suffixes are fixed; the shared printer prefix and weather entity are configurable.
 - HA traffic uses unencrypted `http://` and `ws://`; deploy only on a trusted network unless transport security is added.
 - Touch input is not implemented.

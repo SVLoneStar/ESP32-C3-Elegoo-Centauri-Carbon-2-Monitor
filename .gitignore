@@ -5,6 +5,7 @@ build/
 *.hex
 *.map
 *.uf2
+GeneratedVersion.h
 
 # Local device data and sensitive configuration exports
 state_trace*.log

@@ -46,6 +46,11 @@ Do NOT add PlatformIO configuration files.
 
 Do NOT change the partition scheme unless explicitly requested.
 
+Before every Codex/Arduino CLI compilation, run
+`powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` to generate
+the ignored `GeneratedVersion.h` from the current Git state. Arduino IDE
+users must run the same preparation command manually before compiling.
+
 The Huge APP partition is required because the firmware does not fit into
 the default ESP32-C3 application partition.
 
