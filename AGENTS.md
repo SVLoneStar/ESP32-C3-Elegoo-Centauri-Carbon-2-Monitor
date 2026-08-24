@@ -36,6 +36,7 @@ Required settings:
 - Board: ESP32C3 Dev Module
 - Flash Size: 4 MB
 - Partition Scheme: Huge APP (3MB No OTA/1MB SPIFFS)
+- USB CDC On Boot: Disabled
 - Filesystem: LittleFS
 - Framework: Arduino
 - IDE: Arduino IDE
@@ -49,7 +50,20 @@ Do NOT change the partition scheme unless explicitly requested.
 Before every Codex/Arduino CLI compilation, run
 `powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` to generate
 the ignored `GeneratedVersion.h` from the current Git state. Arduino IDE
-users must run the same preparation command manually before compiling.
+users may run the same preparation command manually when Git revision metadata
+is desired; it is not required for the firmware to compile.
+
+For every Codex/Arduino CLI build, select USB CDC On Boot explicitly rather
+than relying on remembered IDE or default state. ESP32 Arduino core 3.3.11
+encodes the **Disabled** menu choice as `CDCOnBoot=default`; the alternative
+`CDCOnBoot=cdc` selects **Enabled**. The canonical FQBN is:
+
+`esp32:esp32:esp32c3:CDCOnBoot=default,FlashSize=4M,PartitionScheme=huge_app`
+
+Treat this CDC-disabled configuration as the canonical project build unless
+the user explicitly requests another setting. With CDC disabled, project
+`Serial` logging uses UART0 rather than HWCDC/native USB. The ESP32-C3 ROM may
+still emit limited boot information through USB.
 
 The Huge APP partition is required because the firmware does not fit into
 the default ESP32-C3 application partition.

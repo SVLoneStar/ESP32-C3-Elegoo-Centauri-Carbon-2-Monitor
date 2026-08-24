@@ -139,10 +139,23 @@ Open `ESP32_C3_ILI9341_Elegoo_Monitor.ino` directly in Arduino IDE and select:
 | Board | **ESP32C3 Dev Module** |
 | Flash Size | **4 MB (32 Mb)** |
 | Partition Scheme | **Huge APP (3MB No OTA/1MB SPIFFS)** |
+| USB CDC On Boot | **Disabled** |
 
 The firmware is larger than the default ESP32-C3 application partition, so Huge APP is required. It provides approximately 3 MB for the application and retains an approximately 1 MB filesystem partition used through LittleFS for configuration and StateTrace diagnostics.
 
 Huge APP has no OTA slot. Upload firmware through the normal Arduino IDE USB/serial workflow. Although the menu labels the filesystem partition “SPIFFS,” the application mounts it with `LittleFS`.
+
+### USB CDC and Serial diagnostics
+
+**USB CDC On Boot: Disabled** is the hardware-tested configuration for this project. Ten consecutive normal hardware boot tests completed successfully with reliable WiFi and Home Assistant connections, without requiring UniFi AP locking.
+
+Enabling USB CDC On Boot maps `Serial` to HWCDC/native USB on the ESP32-C3. CDC-enabled builds showed startup and network reliability problems in testing when the device was attached to a PC USB host. With CDC disabled, normal standalone boots were reliable and project Serial logging uses UART0, so it is not available through the ESP32-C3 native USB Serial Monitor in the same way. The ESP32-C3 ROM may still emit limited boot information through the USB path; disabling CDC does not imply that every form of USB output disappears.
+
+For Arduino CLI, select the disabled setting explicitly with `CDCOnBoot=default`—the option name used by ESP32 Arduino core 3.3.11 for the menu value **Disabled**. The alternative `CDCOnBoot=cdc` selects **Enabled**. The canonical build FQBN is:
+
+```text
+esp32:esp32:esp32c3:CDCOnBoot=default,FlashSize=4M,PartitionScheme=huge_app
+```
 
 ## Home Assistant requirements
 
@@ -286,7 +299,7 @@ HA may replace `complete` or `stopped` with `idle` before the main loop runs. Te
 
 ## Diagnostics and StateTrace
 
-Serial diagnostics use 115200 baud and include boot/reset information, printer state, WiFi/WebSocket/authentication/subscription state, connection and event counters, uptime, free heap, and minimum free heap. The idle display shows boot count, uptime, reset reason, and a compact firmware ID.
+Serial diagnostics use 115200 baud and include boot/reset information, printer state, WiFi/WebSocket/authentication/subscription state, connection and event counters, uptime, free heap, and minimum free heap. With the required USB CDC On Boot setting disabled, project Serial logging uses UART0 rather than the ESP32-C3 native USB CDC interface. The idle display shows boot count, uptime, reset reason, and a compact firmware ID.
 
 A calibrated tap on the normal TFT view opens a read-only diagnostics page showing firmware/Git identification, uptime, boot count, reset reason, WiFi state and RSSI, Home Assistant WebSocket/authentication/subscription state, connection counters, current/minimum heap, resolved printer state, and BootStage information. Tap again to return to the previous normal view, or wait 20 seconds for automatic return. Printer and network processing continues while this page is displayed.
 
@@ -330,6 +343,7 @@ Development followed an iterative cycle: Idea → architecture → implementatio
 - Home Assistant and compatible entities from the Elegoo integration are required; there is no direct printer connection.
 - Huge APP has no OTA slot, so firmware upload is USB/serial only.
 - Arduino IDE has no reliable project-local pre-build hook for generating Git metadata. Run `tools/build_prep.ps1` manually if Git revision metadata is desired; it is not required to compile the firmware. Without `GeneratedVersion.h`, the existing fallback in `Version.h` is used.
+- Development/debugging only: closing Arduino IDE can cause an ESP32-C3 reset reported by firmware diagnostics as `USB (11)`. A boot triggered specifically by this IDE/USB reset may connect to WiFi without subsequently connecting to Home Assistant. This accepted development-environment edge case is not representative of normal standalone runtime behavior.
 - Printer entity suffixes are fixed; the shared printer prefix and weather entity are configurable.
 - HA traffic uses unencrypted `http://` and `ws://`; deploy only on a trusted network unless transport security is added.
 - Touch interaction is intentionally limited to calibration and the read-only TFT diagnostics page; gestures and printer-control actions are not implemented.
