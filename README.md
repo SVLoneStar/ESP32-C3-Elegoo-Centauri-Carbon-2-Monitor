@@ -1,27 +1,19 @@
 # ESP32-C3 Elegoo Centauri Carbon 2 Monitor
 
-An Arduino-based external 320×240 TFT monitor for the Elegoo Centauri Carbon 2, powered by an ESP32-C3. Printer data comes from Home Assistant: initial values are loaded over REST, then live updates arrive through a printer-only `subscribe_trigger` WebSocket subscription.
+An Arduino-based external 320×240 TFT monitor for the Elegoo Centauri Carbon 2, powered by an ESP32-C3. Printer data comes from Home Assistant: an asynchronous REST task loads initial values, while authoritative live updates arrive through a printer-only `subscribe_trigger` WebSocket subscription.
 
 The monitor presents a dedicated printing view, pause and completion views, and an idle dashboard with current weather and a two-day forecast. A local Web UI handles Home Assistant settings, status information, maintenance, and diagnostics. WiFiManager provides WiFi-only captive-portal provisioning when stored credentials are missing or cannot connect during startup.
 
 > Home Assistant and the required Centauri Carbon 2 entities are prerequisites. The monitor does not communicate with the printer directly.
 
-## 📷 Screenshots and photos
-
-Images can be added under `docs/images/` using these filenames:
-
-| Printing screen | Idle and weather screen |
-|---|---|
-| ![Printing screen placeholder](docs/images/printing-screen.jpg) | ![Idle and weather screen placeholder](docs/images/idle-weather-screen.jpg) |
-
-| Completion screen | Web UI |
-|---|---|
-| ![Completion screen placeholder](docs/images/completion-screen.jpg) | ![Web UI placeholder](docs/images/web-ui.jpg) |
+<p align="center">
+  <img src="docs/images/printing.jpg" alt="Finished ESP32-C3 monitor showing the active printing screen" width="900">
+</p>
 
 ## ✨ Features
 
 - Live printer data from Home Assistant over a targeted WebSocket `subscribe_trigger`
-- Initial printer-state loading through the Home Assistant REST API
+- Deferred, asynchronous initial printer-state loading through the Home Assistant REST API
 - Printing screen with progress, remaining time/calculated ETA, layers, nozzle/bed/chamber temperatures, and print-speed mode/value
 - Explicit printer state machine for idle, printing, paused, and completed prints
 - Preheating treated as active and pausing/paused shown on a dedicated pause screen
@@ -31,12 +23,57 @@ Images can be added under `docs/images/` using these filenames:
 - Weather icons drawn with Adafruit GFX primitives—no bitmap assets or Unicode weather glyphs
 - Persistent, versioned JSON application configuration in LittleFS
 - WiFiManager captive portal for initial WiFi setup and deliberate credential recovery
-- Lightweight local Web UI with Status, Configuration, and Maintenance sections
+- Optional persistent WiFi transmit-power limit for compatibility testing
+- Persistent Web UI-driven resistive-touch calibration with no source changes or recompilation
+- Read-only touch-accessible TFT diagnostics with tap-to-close and a 20-second timeout
+- Lightweight local Web UI with Status, Configuration, Diagnostics, and Maintenance sections
 - Automatic WiFi recovery and HA reconnect, authentication, and resubscription
 - Recovery from repeated early WebSocket disconnects by reconstructing the client after three consecutive failures
 - Serial diagnostics, boot counter, reset reason, heap statistics, and bounded temporary StateTrace logging
 - Firmware version, base Git revision, dirty-build marker, and compiler build timestamp
 - Dirty-region display updates to avoid periodic full-screen flicker
+
+## 📷 User interface and screenshots
+
+### Printing status
+
+The printing view shows current progress and percentage, estimated finish time or remaining print time, current and total layer, the configured print-speed mode, and nozzle, bed, and chamber temperatures. The central time field alternates between relevant information such as finish time and remaining time.
+
+<p align="center">
+  <img src="docs/images/printing.jpg" alt="Printing status with progress, finish time, layers, speed, and temperatures" width="760">
+</p>
+
+### Remaining print time
+
+The alternate printing view keeps the same live print details while presenting the estimated remaining duration.
+
+<p align="center">
+  <img src="docs/images/remaining.jpg" alt="Printing status showing remaining print time" width="760">
+</p>
+
+### Idle and weather
+
+When the printer is idle, the display shows current weather and a two-day forecast. Home Assistant connection or error information remains visible where applicable, alongside the existing device diagnostics.
+
+<p align="center">
+  <img src="docs/images/idle-weather.jpg" alt="Idle dashboard with weather forecast and Home Assistant offline indication" width="760">
+</p>
+
+### Startup status
+
+The dedicated startup screen reports WiFi and Home Assistant status, initial printer-state loading progress, weather initialization, and Web UI readiness. This makes startup progress and failures visible without requiring a USB serial console.
+
+<p align="center">
+  <img src="docs/images/startup.jpg" alt="Startup status showing WiFi, Home Assistant, printer-state, weather, and Web UI progress" width="760">
+</p>
+
+### On-device diagnostics
+
+The read-only touch-accessible diagnostics view shows the firmware version and Git revision, uptime, boot count, reset reason, WiFi state and RSSI, Home Assistant WebSocket/authentication/subscription state and statistics, heap information, resolved printer state, and the current or last boot stage.
+
+<p align="center">
+  <img src="docs/images/diagnostics.jpg" alt="On-device diagnostics view" width="760">
+</p>
 
 ## 🔌 Hardware and wiring
 
@@ -53,9 +90,9 @@ The sketch targets an ESP32-C3 connected to an ILI9341 320×240 TFT in landscape
 
 The firmware uses the ESP32-C3 `FSPI` peripheral and TFT rotation `3`. Power, ground, and backlight wiring are not defined in the source; follow the electrical requirements of your specific modules.
 
-### Resistive touch controller — Phase 1
+### Resistive touch controller
 
-Phase 1 provides non-blocking raw touch reads, calibration diagnostics, and simple tap detection. It does not yet provide gestures, printer controls, maintenance actions, or a dedicated on-device diagnostics page.
+The firmware supports an XPT2046-compatible resistive touch controller using non-blocking polling on the TFT's shared SPI bus. A calibrated tap on a normal display opens the read-only on-device diagnostics screen. Tapping diagnostics returns to the previous display, and the page also closes automatically after 20 seconds without touch. Touch does not expose printer controls, pause/resume/cancel actions, or destructive maintenance actions.
 
 | Touch signal | ESP32-C3 pin | Notes |
 |---|---:|---|
@@ -63,11 +100,21 @@ Phase 1 provides non-blocking raw touch reads, calibration diagnostics, and simp
 | T_DIN | GPIO 6 | Shared with TFT MOSI |
 | T_DO | GPIO 5 | Shared SPI MISO |
 | T_CS | GPIO 10 | Dedicated touch chip select |
-| T_IRQ | Not connected | Phase 1 uses non-blocking polling |
+| T_IRQ | Not connected | Touch uses non-blocking polling |
 
 The TFT and XPT2046 use separate active-low chip-select lines. Touch transactions run at 2 MHz through the installed `XPT2046_Touchscreen` library.
 
-Touch calibration is intentionally disabled until measured values are available. With `TOUCH_VERBOSE_LOGGING` enabled in `TouchInput.cpp`, press the active screen edges and corners and record the reported raw X/Y values. Enter the measured limits in `TOUCH_RAW_X_MIN`, `TOUCH_RAW_X_MAX`, `TOUCH_RAW_Y_MIN`, and `TOUCH_RAW_Y_MAX`; adjust `TOUCH_SWAP_AXES`, `TOUCH_INVERT_X`, and `TOUCH_INVERT_Y` as required for rotation 3, then set `TOUCH_CALIBRATION_VALID` to `true`. Disable verbose logging after calibration.
+Touch calibration is started from the Web UI Diagnostics page using **Calibrate Touch** or **Recalibrate Touch**. The TFT guides the user through four corner targets and derives the raw ranges, axis orientation, and inversion settings. A new calibration is saved only after validation succeeds; a failed or cancelled attempt preserves the previous valid calibration. Calibration values are stored in the existing versioned LittleFS configuration and persist across reboot, so calibration requires neither source editing nor recompilation.
+
+## 3D-printed enclosure
+
+The enclosure is 3D printed and adapted specifically for this project's ESP32-C3 and ILI9341 implementation. The original design by DorffMeister ([@DorffMeister_7295](https://www.printables.com/@DorffMeister_7295)) already includes the desktop stand/platform. This project modifies only the front bezel so it better hides the rough or uneven edges of the ILI9341 module, adds a USB cut-out, and adds an ESP32-C3 mounting solution.
+
+- [Original Printables model: Case for 2.8 ILI9341 TFT LCD and Microcontroller](https://www.printables.com/model/441958-case-for-28-ili9341-tft-lcd-and-microcontroller)
+- [Project remix: Case for 2.8 ILI9341 TFT LCD and ESP32-C3](https://www.printables.com/model/1822402-case-for-28-ili9341-tft-lcd-and-esp32-c3)
+- [Download the included STL files and read the enclosure notes](hardware/enclosure/)
+
+The enclosure STL files are distributed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). This license applies to the enclosure files and does not replace the software license of this project.
 
 ## Software requirements
 
@@ -79,7 +126,7 @@ Touch calibration is intentionally disabled until measured values are available.
 | ArduinoJson | REST, WebSocket, weather, and configuration JSON | Not pinned |
 | ArduinoWebsockets | Home Assistant WebSocket client | Not pinned |
 | WiFiManager | WiFi provisioning and credential reset | 2.0.17, or a compatible ESP32-capable release |
-| XPT2046_Touchscreen | Phase 1 resistive touch polling and raw samples | 1.4, or a compatible release |
+| XPT2046_Touchscreen | Resistive touch polling and raw samples | 1.4, or a compatible release |
 
 The GFX fonts used by the sketch are supplied by Adafruit GFX. PlatformIO is not used.
 
@@ -141,8 +188,11 @@ The Web UI never displays the stored token back in plaintext. The password field
 7. Open the Web UI using the IP printed over Serial or the default `http://cc2-monitor.local/`. If the name was previously changed, use the configured mDNS name.
 8. In **Configuration**, enter the HA host/IP, port, LLAT, POSIX timezone, printer entity prefix, and optional weather entity.
 9. Save, restart as instructed, then use **Status** to verify printer data, authentication, subscription, and weather.
+10. Open **Diagnostics** and select **Calibrate Touch** to perform the guided TFT calibration when needed.
 
 The Web UI remains independent of Home Assistant availability once WiFi is connected.
+
+During startup, the TFT progress screen reports WiFi, Home Assistant, initial printer-state loading, weather initialization, and Web UI readiness. Initial printer REST loading is deferred until WiFi and the bounded HA startup grace period are ready, then runs asynchronously so it does not hold up the normal startup path. Repeated REST transport failures cause the initial load to fail fast rather than retrying every entity, while WebSocket updates remain authoritative for live printer state.
 
 ## Web UI
 
@@ -162,6 +212,7 @@ The lightweight HTTP server listens on port 80 and publishes an mDNS HTTP servic
 ### Configuration
 
 - device/mDNS name
+- WiFi transmit-power limit, or Default to retain the ESP32 core setting
 - HA host/IP, port, and LLAT
 - POSIX timezone
 - printer entity prefix
@@ -170,6 +221,28 @@ The lightweight HTTP server listens on port 80 and publishes an mDNS HTTP servic
 - StateTrace logging enabled/disabled
 
 Configuration is stored as versioned JSON in `/config.json` on LittleFS. Saved changes take effect after restart. Weather refresh values outside 1 minute–24 hours and ETA switch values outside 1–60 seconds fall back to compiled defaults.
+
+### Diagnostics
+
+- firmware/build metadata, device uptime, boot count, reset reason, heap, and loop timing
+- current and previous persisted BootStage information
+- touch initialization, calibration validity, raw ranges, axis orientation, and inversion
+- **Calibrate Touch** or **Recalibrate Touch**, plus cancellation that preserves the previous valid calibration
+- WiFi connection details, RSSI, and configured/effective transmit power
+- Home Assistant WebSocket/authentication/subscription state and connection counters
+- printer raw/resolved state, events, weather, and temporary StateTrace information
+
+### WiFi transmit power
+
+The Configuration page can optionally limit WiFi transmit power to one of the values supported by
+the installed ESP32 Arduino core. **Default** leaves transmit power entirely under control of the
+ESP32/Arduino core and does not call `WiFi.setTxPower()`.
+
+A reduced transmit-power limit can improve compatibility in some ESP32/access-point combinations.
+The project encountered such an issue with a UniFi access point, but this does not mean that UniFi
+installations generally require reduced transmit power. **8.5 dBm** is the hardware-tested
+compatibility value for this project. The setting persists in LittleFS and changing it requires a
+device restart.
 
 ### Maintenance
 
@@ -201,17 +274,21 @@ HA may replace `complete` or `stopped` with `idle` before the main loop runs. Te
 
 ## Reliability and recovery
 
-- Initial REST requests use finite timeouts; malformed responses or unavailable HA services do not reboot the ESP32-C3.
+- Initial REST loading is deferred and asynchronous, uses finite timeouts, and fails fast after repeated transport failures; malformed responses or unavailable HA services do not reboot the ESP32-C3.
 - Live updates use a printer-only WebSocket subscription rather than a broad event stream.
+- WebSocket updates remain authoritative when asynchronous initial REST results arrive later.
 - Disconnects trigger reconnect, reauthentication, and resubscription with backoff capped at 30 seconds.
 - Repeated connections that close before authentication and subscription receive exponential backoff. After three consecutive early disconnects, the stale WebSocket client is reconstructed before retrying.
 - Temporary `idle` and `unavailable` values preserve an established active print state.
 - Runtime WiFi loss uses `WiFi.reconnect()` on a five-second retry interval rather than immediately starting an AP.
+- An optional configured WiFi transmit-power limit is applied after STA mode starts and before WiFiManager connects; Default leaves the core value unchanged.
 - Weather uses separate short-timeout HTTP work and the Web UI remains independent of HA availability.
 
 ## Diagnostics and StateTrace
 
 Serial diagnostics use 115200 baud and include boot/reset information, printer state, WiFi/WebSocket/authentication/subscription state, connection and event counters, uptime, free heap, and minimum free heap. The idle display shows boot count, uptime, reset reason, and a compact firmware ID.
+
+A calibrated tap on the normal TFT view opens a read-only diagnostics page showing firmware/Git identification, uptime, boot count, reset reason, WiFi state and RSSI, Home Assistant WebSocket/authentication/subscription state, connection counters, current/minimum heap, resolved printer state, and BootStage information. Tap again to return to the previous normal view, or wait 20 seconds for automatic return. Printer and network processing continues while this page is displayed.
 
 Temporary `StateTrace` logging uses `/state_trace.log` in LittleFS. It records boot/reset, both raw status changes, resolved transitions, printer error/reason changes, WebSocket lifecycle and recovery, ignored active idle, and terminal-signal latching/consumption. It does not intentionally record credentials.
 
@@ -265,10 +342,12 @@ Suggested versions: `MAJOR.MINOR.PATCH` for stable, `MAJOR.MINOR.PATCH-dev` for 
 | `ConfigStore.h/.cpp` | LittleFS JSON load/save/clear |
 | `Diagnostics.h/.cpp` | Boot counter, reset reason, uptime, and Serial diagnostics |
 | `Display.h/.cpp` | General TFT layouts and dirty-region rendering |
-| `HomeAssistant.h/.cpp` | Printer REST load, WiFi provisioning/recovery, WebSocket authentication/subscription/recovery |
+| `BootStage.h/.cpp` | Persisted startup-stage tracking and startup timing diagnostics |
+| `HomeAssistant.h/.cpp` | Asynchronous printer REST load, WiFi provisioning/recovery, WebSocket authentication/subscription/recovery |
 | `PrinterData.h/.cpp` | Entity parsing, state machine, terminal latching, layer snapshots, and formatting |
 | `StateTrace.h/.cpp` | Bounded temporary LittleFS trace |
 | `TimeHelpers.h/.cpp` | NTP, timezone, clock, and date |
+| `TouchInput.h/.cpp` | Resistive touch polling, persistent calibration, coordinate mapping, and TFT diagnostics navigation |
 | `Weather.h/.cpp` | Weather REST task, forecast cache, primitive icons, and weather-specific drawing |
 | `WebUI.h/.cpp` | HTTP status/configuration/maintenance UI, mDNS, and trace download |
 | `Version.h` | Manual semantic version, generated-metadata fallback, and identifier macros |
@@ -281,17 +360,14 @@ Suggested versions: `MAJOR.MINOR.PATCH` for stable, `MAJOR.MINOR.PATCH-dev` for 
 - Arduino IDE requires an explicit `tools/build_prep.ps1` step before compiling Git metadata.
 - Printer entity suffixes are fixed; the shared printer prefix and weather entity are configurable.
 - HA traffic uses unencrypted `http://` and `ws://`; deploy only on a trusted network unless transport security is added.
-- Touch input is not implemented.
+- Touch interaction is intentionally limited to calibration and the read-only TFT diagnostics page; gestures and printer-control actions are not implemented.
 - StateTrace is temporary and restarts instead of rotating when its size limit is reached.
 
 ## Possible future work
 
 These are ideas, not implemented features:
 
-- touch-controller support
-- an on-device diagnostics/status page
 - individually configurable printer entity suffixes if future integrations require them
-- optional build tooling for version metadata while retaining Arduino IDE compatibility
 - secure HA transport where supported
 
 ## 🔐 Security

@@ -10,6 +10,7 @@ void printResetReason();
 String getUptimeString();
 void printStatus();
 void recordBlockingCall(const char* functionName, unsigned long elapsedMs);
+void recordSetupTiming(const char* phaseName, unsigned long elapsedMs);
 void recordLoopDuration(unsigned long elapsedMs);
 uint32_t getMaximumLoopDuration();
 uint32_t getLoopOver100MsCount();

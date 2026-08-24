@@ -4,6 +4,8 @@
 String buildRestURL(const char* entity);
 void loadInitialEntity(const char* entity);
 void loadInitialPrinterData();
+void serviceInitialPrinterDataLoad();
+bool initialPrinterDataLoadRunning();
 void resetWebSocketState();
 void sendAuth();
 void subscribePrinterTriggers();
@@ -19,3 +21,6 @@ bool tryWebSocketConnect();
 void maintainWebSocket();
 uint16_t getConsecutiveEarlyDisconnectCount();
 uint32_t getWebSocketClientReinitializationCount();
+String getConfiguredWifiTxPower();
+String getEffectiveWifiTxPower();
+String getWifiTxPowerApplyStatus();

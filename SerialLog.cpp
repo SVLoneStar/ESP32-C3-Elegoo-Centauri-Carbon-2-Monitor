@@ -5,6 +5,10 @@
 #include <stdarg.h>
 #include <string.h>
 
+#if ARDUINO_USB_CDC_ON_BOOT && ARDUINO_USB_MODE
+#include <HWCDC.h>
+#endif
+
 namespace {
 constexpr TickType_t SERIAL_LOG_WAIT_TICKS = pdMS_TO_TICKS(5);
 constexpr size_t SERIAL_LOG_LINE_SIZE = 256;
@@ -16,13 +20,21 @@ size_t blockLength = 0;
 uint32_t shortWriteCount = 0;
 uint32_t droppedWriteCount = 0;
 
+bool serialOutputAvailable() {
+#if ARDUINO_USB_CDC_ON_BOOT && ARDUINO_USB_MODE
+    return HWCDC::isConnected();
+#else
+    return true;
+#endif
+}
+
 void formatLine(char* destination, size_t destinationSize, const char* format,
                 va_list arguments) {
     vsnprintf(destination, destinationSize, format, arguments);
 }
 
 void writeCompleteBuffer(const char* buffer, size_t length) {
-    if (buffer == nullptr || length == 0)
+    if (buffer == nullptr || length == 0 || !serialOutputAvailable())
         return;
 
     size_t written = Serial.write((const uint8_t*)buffer, length);
@@ -68,7 +80,7 @@ void initializeSerialLog() {
 }
 
 void serialLogLine(const char* line) {
-    if (serialMutex == nullptr || line == nullptr ||
+    if (!serialOutputAvailable() || serialMutex == nullptr || line == nullptr ||
         xSemaphoreTake(serialMutex, SERIAL_LOG_WAIT_TICKS) != pdTRUE) {
         return;
     }
@@ -87,8 +99,10 @@ void serialLogLinef(const char* format, ...) {
 }
 
 bool beginSerialLogBlock() {
-    if (serialMutex == nullptr || xSemaphoreTake(serialMutex, SERIAL_LOG_WAIT_TICKS) != pdTRUE)
+    if (!serialOutputAvailable() || serialMutex == nullptr ||
+        xSemaphoreTake(serialMutex, SERIAL_LOG_WAIT_TICKS) != pdTRUE) {
         return false;
+    }
 
     blockOwner = xTaskGetCurrentTaskHandle();
     blockLength = 0;

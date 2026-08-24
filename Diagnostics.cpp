@@ -151,6 +151,13 @@ void recordBlockingCall(const char* functionName, unsigned long elapsedMs) {
     stateTraceLog("BLOCKING_CALL", detail);
 }
 
+void recordSetupTiming(const char* phaseName, unsigned long elapsedMs) {
+    char detail[112];
+    snprintf(detail, sizeof(detail), "phase=%s elapsed_ms=%lu", phaseName, elapsedMs);
+    serialDiagnostic("SETUP_TIMING | %s", detail);
+    stateTraceLog("SETUP_TIMING", detail);
+}
+
 void recordLoopDuration(unsigned long elapsedMs) {
     if (elapsedMs > maximumLoopDuration)
         maximumLoopDuration = elapsedMs;

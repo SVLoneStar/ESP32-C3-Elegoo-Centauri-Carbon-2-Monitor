@@ -2,7 +2,16 @@
 
 #include <Arduino.h>
 
-const uint16_t CURRENT_CONFIG_VERSION = 3;
+const uint16_t CURRENT_CONFIG_VERSION = 4;
+const int16_t WIFI_TX_POWER_DEFAULT = INT16_MAX;
+
+struct WifiTxPowerOption {
+    int16_t value;
+    const char* label;
+};
+
+extern const WifiTxPowerOption WIFI_TX_POWER_OPTIONS[];
+extern const size_t WIFI_TX_POWER_OPTION_COUNT;
 
 struct AppConfig {
     uint16_t configVersion;
@@ -15,6 +24,7 @@ struct AppConfig {
     char weatherEntity[96];
     uint32_t weatherRefreshIntervalMs;
     uint32_t etaRemainingSwitchIntervalMs;
+    int16_t wifiTxPowerQuarterDbm;
     bool stateTraceEnabled;
     bool touchCalibrationValid;
     int16_t touchRawXMin;
@@ -31,3 +41,5 @@ extern AppConfig appConfig;
 void setConfigDefaults(AppConfig& config);
 bool hasValidHomeAssistantConfig(const AppConfig& config);
 bool hasValidPrinterEntityConfig(const AppConfig& config);
+bool isSupportedWifiTxPower(int16_t value);
+String wifiTxPowerText(int16_t value);

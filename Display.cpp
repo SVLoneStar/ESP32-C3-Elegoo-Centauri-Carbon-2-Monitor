@@ -9,6 +9,48 @@
 #include "BootStage.h"
 #include "TouchInput.h"
 
+namespace {
+constexpr uint8_t BOOT_LINE_COUNT = 5;
+constexpr int16_t BOOT_LINE_BASELINES[BOOT_LINE_COUNT] = {85, 113, 141, 169, 197};
+const char* BOOT_LINE_LABELS[BOOT_LINE_COUNT] = {"WiFi", "Home Assistant", "Printer states",
+                                                 "Weather", "Web UI"};
+char bootLineValues[BOOT_LINE_COUNT][32];
+bool bootProgressActive = false;
+
+uint16_t bootStatusColor(const char* status) {
+    if (status == nullptr)
+        return C_TEXT;
+    if (strstr(status, "OK") != nullptr)
+        return C_GREEN;
+    if (strstr(status, "OFFLINE") != nullptr || strstr(status, "FAILED") != nullptr)
+        return C_RED;
+    if (strstr(status, "TIMEOUT") != nullptr)
+        return C_ORANGE;
+    if (strstr(status, "DISABLED") != nullptr)
+        return C_DIM;
+    return C_CYAN;
+}
+
+void updateBootLine(uint8_t lineIndex, const char* value) {
+    if (!bootProgressActive || lineIndex >= BOOT_LINE_COUNT || value == nullptr ||
+        strcmp(bootLineValues[lineIndex], value) == 0) {
+        return;
+    }
+
+    strlcpy(bootLineValues[lineIndex], value, sizeof(bootLineValues[lineIndex]));
+    int16_t baseline = BOOT_LINE_BASELINES[lineIndex];
+    tft.fillRect(6, baseline - 18, 308, 23, C_BG);
+    tft.setFont(&FreeSans9pt7b);
+    tft.setTextColor(C_TEXT);
+    tft.setCursor(10, baseline);
+    tft.print(BOOT_LINE_LABELS[lineIndex]);
+    tft.print(":");
+    tft.setTextColor(bootStatusColor(value));
+    tft.setCursor(176, baseline);
+    tft.print(value);
+}
+}
+
 // CENTER TEXT
 // ============================================================
 
@@ -95,6 +137,49 @@ void drawOnDeviceDiagnostics() {
     drawDiagnosticsTextLine(line, 205);
 
     drawCenteredText("Tap to return", 229, &FreeSans9pt7b, C_DIM);
+}
+
+void drawBootProgressScreen() {
+    memset(bootLineValues, 0, sizeof(bootLineValues));
+    bootProgressActive = true;
+    tft.fillScreen(C_BG);
+    drawCenteredText("STARTING", 26, &FreeSansBold12pt7b, C_CYAN);
+    drawCenteredText(FIRMWARE_IDENTIFIER, 51, &FreeSans9pt7b, C_DIM);
+    tft.drawFastHLine(0, 59, 320, C_DIM);
+    updateBootWiFiStatus("WAITING");
+    updateBootHomeAssistantStatus("WAITING");
+    updateBootPrinterProgress(0, 12);
+    updateBootWeatherStatus("WAITING");
+    updateBootWebUIStatus("WAITING");
+}
+
+void updateBootWiFiStatus(const char* status) {
+    updateBootLine(0, status);
+}
+
+void updateBootHomeAssistantStatus(const char* status) {
+    updateBootLine(1, status);
+}
+
+void updateBootPrinterProgress(uint8_t completed, uint8_t total, const char* status) {
+    char value[32];
+    if (status != nullptr)
+        snprintf(value, sizeof(value), "%u / %u %s", completed, total, status);
+    else
+        snprintf(value, sizeof(value), "%u / %u", completed, total);
+    updateBootLine(2, value);
+}
+
+void updateBootWeatherStatus(const char* status) {
+    updateBootLine(3, status);
+}
+
+void updateBootWebUIStatus(const char* status) {
+    updateBootLine(4, status);
+}
+
+void finishBootProgressScreen() {
+    bootProgressActive = false;
 }
 
 // ICONS

@@ -155,6 +155,9 @@ void writeStatusJson(WiFiClient& client) {
     jsonField(client, "wifiChannel", wifi ? String(WiFi.channel()) : "--", first);
     jsonField(client, "wifiGateway", wifiValue(wifi, WiFi.gatewayIP().toString()), first);
     jsonField(client, "wifiDns", wifiValue(wifi, WiFi.dnsIP().toString()), first);
+    jsonField(client, "wifiTxPowerConfigured", getConfiguredWifiTxPower(), first);
+    jsonField(client, "wifiTxPowerEffective", getEffectiveWifiTxPower(), first);
+    jsonField(client, "wifiTxPowerApplyStatus", getWifiTxPowerApplyStatus(), first);
     jsonField(client, "haHost", appConfig.homeAssistantHost, first);
     jsonField(client, "haPort", String(appConfig.homeAssistantPort), first);
     jsonField(client, "websocketState", wsConnected ? "CONNECTED" : "OFFLINE", first);
@@ -197,10 +200,12 @@ void writeStatusJson(WiFiClient& client) {
     jsonField(client, "bootStageCode", String((uint8_t)getCurrentBootStage()), first);
     jsonField(client, "bootStageDisplay",
               String(bootStageText(getCurrentBootStage())) + " (" +
-                  String((uint8_t)getCurrentBootStage()) + ")",
+                  String((uint8_t)getCurrentBootStage()) + "), uptime " +
+                  String(getCurrentBootStageUptimeMs()) + " ms",
               first);
     jsonField(client, "previousBootStage", bootStageText(getPreviousBootStage()), first);
     jsonField(client, "previousBootStageCode", String((uint8_t)getPreviousBootStage()), first);
+    jsonField(client, "previousBootStageUptimeMs", String(getPreviousBootStageUptimeMs()), first);
     jsonField(client, "bootStagePersistence",
               isBootStagePersistenceAvailable() ? "AVAILABLE" : "UNAVAILABLE", first);
     jsonField(client, "freeHeap", String(ESP.getFreeHeap()) + " bytes", first);
@@ -260,11 +265,13 @@ void showStatus(WiFiClient& client) {
     statusRow(client, "Reset reason", resetReasonWithCode(lastResetReason), "", "resetReason");
     statusRow(client, "Current boot stage",
               String(bootStageText(getCurrentBootStage())) + " (" +
-                  String((uint8_t)getCurrentBootStage()) + ")",
+                  String((uint8_t)getCurrentBootStage()) + "), uptime " +
+                  String(getCurrentBootStageUptimeMs()) + " ms",
               "", "bootStageDisplay");
     statusRow(client, "Previous boot last stage",
               String(bootStageText(getPreviousBootStage())) + " (" +
-                  String((uint8_t)getPreviousBootStage()) + ")");
+                  String((uint8_t)getPreviousBootStage()) + "), uptime " +
+                  String(getPreviousBootStageUptimeMs()) + " ms");
     statusRow(client, "Boot-stage persistence",
               isBootStagePersistenceAvailable() ? "AVAILABLE" : "UNAVAILABLE", "",
               "bootStagePersistence");
@@ -301,11 +308,13 @@ void showDiagnostics(WiFiClient& client) {
     statusRow(client, "Reset reason", resetReasonWithCode(lastResetReason), "", "resetReason");
     statusRow(client, "Current boot stage",
               String(bootStageText(getCurrentBootStage())) + " (" +
-                  String((uint8_t)getCurrentBootStage()) + ")",
+                  String((uint8_t)getCurrentBootStage()) + "), uptime " +
+                  String(getCurrentBootStageUptimeMs()) + " ms",
               "", "bootStageDisplay");
     statusRow(client, "Previous boot last stage",
               String(bootStageText(getPreviousBootStage())) + " (" +
-                  String((uint8_t)getPreviousBootStage()) + ")");
+                  String((uint8_t)getPreviousBootStage()) + "), uptime " +
+                  String(getPreviousBootStageUptimeMs()) + " ms");
     statusRow(client, "Boot-stage persistence",
               isBootStagePersistenceAvailable() ? "AVAILABLE" : "UNAVAILABLE", "",
               "bootStagePersistence");
@@ -348,6 +357,12 @@ void showDiagnostics(WiFiClient& client) {
     statusRow(client, "Channel", wifi ? String(WiFi.channel()) : "--", "", "wifiChannel");
     statusRow(client, "Gateway", wifiValue(wifi, WiFi.gatewayIP().toString()), "", "wifiGateway");
     statusRow(client, "DNS server", wifiValue(wifi, WiFi.dnsIP().toString()), "", "wifiDns");
+    statusRow(client, "Configured TX power", getConfiguredWifiTxPower(), "",
+              "wifiTxPowerConfigured");
+    statusRow(client, "Effective TX power", getEffectiveWifiTxPower(), "",
+              "wifiTxPowerEffective");
+    statusRow(client, "TX power application", getWifiTxPowerApplyStatus(), "",
+              "wifiTxPowerApplyStatus");
     client.print(F("</table></section>"));
     diagnosticSection(client, "Home Assistant");
     statusRow(client, "Configured host / IP", appConfig.homeAssistantHost, "", "haHost");
@@ -426,12 +441,35 @@ void stateTraceSelect(WiFiClient& client) {
     client.print(F(">Disabled</option></select></label>"));
 }
 
+void wifiTxPowerSelect(WiFiClient& client) {
+    client.print(F("<label>WiFi transmit-power limit<select name='wifiTxPower'>"
+                   "<option value='default'"));
+    if (appConfig.wifiTxPowerQuarterDbm == WIFI_TX_POWER_DEFAULT)
+        client.print(F(" selected"));
+    client.print(F(">Default (core-managed)</option>"));
+
+    for (size_t i = 0; i < WIFI_TX_POWER_OPTION_COUNT; i++) {
+        client.print(F("<option value='"));
+        client.print(WIFI_TX_POWER_OPTIONS[i].value);
+        client.print('\'');
+        if (appConfig.wifiTxPowerQuarterDbm == WIFI_TX_POWER_OPTIONS[i].value)
+            client.print(F(" selected"));
+        client.print('>');
+        printEscaped(client, WIFI_TX_POWER_OPTIONS[i].label);
+        client.print(F("</option>"));
+    }
+    client.print(F("</select></label>"));
+}
+
 void showConfiguration(WiFiClient& client) {
     sendHeader(client, 200, "OK");
     pageStart(client, "Configuration");
     client.print(F("<section><form method='post' action='/configuration'>"));
 
+    client.print(F("<h2>WiFi / network</h2>"));
     input(client, "Device / mDNS name", "deviceName", appConfig.deviceName);
+    wifiTxPowerSelect(client);
+    client.print(F("<h2>Home Assistant and display</h2>"));
     input(client, "Home Assistant host or IP", "haHost", appConfig.homeAssistantHost);
     input(client, "Home Assistant port", "haPort", String(appConfig.homeAssistantPort), "number");
     input(client, "Home Assistant long-lived access token (leave empty to preserve)", "haToken", "",
@@ -522,6 +560,15 @@ void saveConfigurationForm(WiFiClient& client, const String& body) {
                   sizeof(pending.printerEntityPrefix));
     copyFormValue(body, "weatherEntity", pending.weatherEntity, sizeof(pending.weatherEntity));
     pending.stateTraceEnabled = formValue(body, "stateTraceEnabled") == "1";
+
+    String wifiTxPower = formValue(body, "wifiTxPower");
+    if (wifiTxPower == "default") {
+        pending.wifiTxPowerQuarterDbm = WIFI_TX_POWER_DEFAULT;
+    } else if (wifiTxPower.length() > 0) {
+        int16_t value = (int16_t)wifiTxPower.toInt();
+        pending.wifiTxPowerQuarterDbm =
+            isSupportedWifiTxPower(value) ? value : WIFI_TX_POWER_DEFAULT;
+    }
 
     long port = formValue(body, "haPort").toInt();
     if (port > 0 && port <= 65535)
@@ -774,4 +821,8 @@ void webUITask(void* parameter) {
 
 void initializeWebUI() {
     xTaskCreate(webUITask, "web-ui", 8192, nullptr, 1, nullptr);
+}
+
+bool isWebUIReady() {
+    return serverStarted;
 }

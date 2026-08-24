@@ -37,14 +37,20 @@ enum BootStage : uint8_t {
     BOOT_STAGE_MDNS_BEGIN,
     BOOT_STAGE_MDNS_READY,
     BOOT_STAGE_MDNS_FAILED,
-    BOOT_STAGE_SETUP_COMPLETE
+    BOOT_STAGE_SETUP_COMPLETE,
+    BOOT_STAGE_SETUP_ENTERED,
+    BOOT_STAGE_TRACKING_READY,
+    BOOT_STAGE_STATE_TRACE_BEGIN,
+    BOOT_STAGE_WIFI_MANAGER_COMPLETE
 };
 
-void initializeBootStageTracking();
+void initializeBootStageTracking(unsigned long setupEnteredAt);
 void enableBootStageSerialLogging();
 void enableBootStageTraceLogging();
 void markBootStage(BootStage stage);
 const char* bootStageText(BootStage stage);
 BootStage getCurrentBootStage();
 BootStage getPreviousBootStage();
+uint32_t getCurrentBootStageUptimeMs();
+uint32_t getPreviousBootStageUptimeMs();
 bool isBootStagePersistenceAvailable();

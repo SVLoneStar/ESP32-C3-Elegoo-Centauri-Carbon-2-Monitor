@@ -29,13 +29,30 @@
 
 void setup() {
     unsigned long callStarted;
+    unsigned long callElapsed;
+    unsigned long setupEnteredAt = millis();
 
-    initializeBootStageTracking();
+    initializeBootStageTracking(setupEnteredAt);
     markBootStage(BOOT_STAGE_SERIAL_BEGIN);
+    callStarted = millis();
     Serial.begin(115200);
+    callElapsed = millis() - callStarted;
     initializeSerialLog();
     enableBootStageSerialLogging();
     markBootStage(BOOT_STAGE_SERIAL_READY);
+    recordSetupTiming("Serial.begin", callElapsed);
+#if ARDUINO_USB_CDC_ON_BOOT
+#if ARDUINO_USB_MODE
+    serialDiagnostic("SERIAL_CONFIG | implementation=HWCDC_USB_SERIAL_JTAG usb_mode=%d cdc_on_boot=%d",
+                     ARDUINO_USB_MODE, ARDUINO_USB_CDC_ON_BOOT);
+#else
+    serialDiagnostic("SERIAL_CONFIG | implementation=NATIVE_USB_CDC usb_mode=%d cdc_on_boot=%d",
+                     ARDUINO_USB_MODE, ARDUINO_USB_CDC_ON_BOOT);
+#endif
+#else
+    serialDiagnostic("SERIAL_CONFIG | implementation=UART0 usb_mode=%d cdc_on_boot=%d",
+                     ARDUINO_USB_MODE, ARDUINO_USB_CDC_ON_BOOT);
+#endif
 
     callStarted = millis();
     initBootCounter();
@@ -48,18 +65,23 @@ void setup() {
     markBootStage(BOOT_STAGE_CONFIG_BEGIN);
     callStarted = millis();
     initializeConfigStore();
-    recordBlockingCall("initializeConfigStore", millis() - callStarted);
+    callElapsed = millis() - callStarted;
     markBootStage(BOOT_STAGE_CONFIG_READY);
+    recordBlockingCall("initializeConfigStore", callElapsed);
+    recordSetupTiming("LittleFS.config", callElapsed);
 
     callStarted = millis();
     initializePrinterEntityIds();
     recordBlockingCall("initializePrinterEntityIds", millis() - callStarted);
 
+    markBootStage(BOOT_STAGE_STATE_TRACE_BEGIN);
     callStarted = millis();
     initializeStateTrace();
-    recordBlockingCall("initializeStateTrace", millis() - callStarted);
-    enableBootStageTraceLogging();
+    callElapsed = millis() - callStarted;
     markBootStage(BOOT_STAGE_TRACE_READY);
+    recordBlockingCall("initializeStateTrace", callElapsed);
+    recordSetupTiming("StateTrace.init", callElapsed);
+    enableBootStageTraceLogging();
 
     callStarted = millis();
     stateTraceLogBoot(bootCount, resetReasonText(lastResetReason));
@@ -68,8 +90,10 @@ void setup() {
     markBootStage(BOOT_STAGE_WEB_UI_TASK_BEGIN);
     callStarted = millis();
     initializeWebUI();
-    recordBlockingCall("initializeWebUI", millis() - callStarted);
+    callElapsed = millis() - callStarted;
     markBootStage(BOOT_STAGE_WEB_UI_TASK_READY);
+    recordBlockingCall("initializeWebUI", callElapsed);
+    recordSetupTiming("WebUI.task", callElapsed);
 
     callStarted = millis();
     initializePrinter();
@@ -99,8 +123,15 @@ void setup() {
     tft.setTextWrap(false);
 
     tft.fillScreen(C_BG);
-    recordBlockingCall("initializeTFT", millis() - callStarted);
+    callElapsed = millis() - callStarted;
     markBootStage(BOOT_STAGE_TFT_READY);
+    recordBlockingCall("initializeTFT", callElapsed);
+    recordSetupTiming("TFT.init", callElapsed);
+    drawBootProgressScreen();
+
+    String weatherStatus = getWeatherStatus();
+    updateBootWeatherStatus(weatherStatus.startsWith("DISABLED") ? "DISABLED" : "OK");
+    updateBootWebUIStatus(isWebUIReady() ? "OK" : "WAITING");
 
     callStarted = millis();
     initializeTouchInput();
@@ -111,31 +142,40 @@ void setup() {
     // ----------------------------------------------------------
 
     markBootStage(BOOT_STAGE_WEBSOCKET_INIT_BEGIN);
+    callStarted = millis();
     client.onMessage(onMessageCallback);
 
     client.onEvent(onEventCallback);
+    callElapsed = millis() - callStarted;
     markBootStage(BOOT_STAGE_WEBSOCKET_INIT_READY);
+    recordSetupTiming("WebSocket.client.init", callElapsed);
 
     // ----------------------------------------------------------
     // WIFI + INITIAL STATES
     // ----------------------------------------------------------
 
+    updateBootWiFiStatus("CONNECTING");
     callStarted = millis();
     bool wifiConnected = connectWiFi();
     recordBlockingCall("connectWiFi", millis() - callStarted);
+    updateBootWiFiStatus(wifiConnected ? "OK" : "OFFLINE");
+    updateBootWebUIStatus(isWebUIReady() ? "OK" : wifiConnected ? "WAITING" : "OFFLINE");
 
     if (wifiConnected) {
         markBootStage(BOOT_STAGE_NTP_BEGIN);
         callStarted = millis();
         startNTP();
-        recordBlockingCall("startNTP", millis() - callStarted);
+        callElapsed = millis() - callStarted;
         markBootStage(BOOT_STAGE_NTP_READY);
+        recordBlockingCall("startNTP", callElapsed);
 
-        markBootStage(BOOT_STAGE_INITIAL_REST_BEGIN);
-        callStarted = millis();
         loadInitialPrinterData();
-        recordBlockingCall("loadInitialPrinterData", millis() - callStarted);
-        markBootStage(BOOT_STAGE_INITIAL_REST_COMPLETE);
+        updateBootWebUIStatus(isWebUIReady() ? "OK" : "WAITING");
+    } else {
+        updateBootHomeAssistantStatus("OFFLINE");
+        updateBootPrinterProgress(0, 12, "OFFLINE");
+        if (!weatherStatus.startsWith("DISABLED"))
+            updateBootWeatherStatus("OFFLINE");
     }
 
     // ----------------------------------------------------------
@@ -150,6 +190,7 @@ void setup() {
 
     fullRedrawNeeded = true;
     markBootStage(BOOT_STAGE_SETUP_COMPLETE);
+    finishBootProgressScreen();
 }
 
 // ============================================================
@@ -166,6 +207,10 @@ void loop() {
     callStarted = millis();
     maintainWebSocket();
     recordBlockingCall("maintainWebSocket", millis() - callStarted);
+
+    callStarted = millis();
+    serviceInitialPrinterDataLoad();
+    recordBlockingCall("serviceInitialPrinterDataLoad", millis() - callStarted);
 
     callStarted = millis();
     updatePrinterStateMachine();

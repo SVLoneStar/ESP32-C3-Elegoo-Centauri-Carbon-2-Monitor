@@ -44,6 +44,9 @@ void sanitizeConfiguration(AppConfig& config) {
         config.etaRemainingSwitchIntervalMs = 5000UL;
     }
 
+    if (!isSupportedWifiTxPower(config.wifiTxPowerQuarterDbm))
+        config.wifiTxPowerQuarterDbm = WIFI_TX_POWER_DEFAULT;
+
     if (config.touchRawXMin < 0 || config.touchRawXMax > 4095 ||
         config.touchRawYMin < 0 || config.touchRawYMax > 4095 ||
         config.touchRawXMax - config.touchRawXMin < 500 ||
@@ -125,6 +128,9 @@ bool loadConfiguration() {
     loaded.etaRemainingSwitchIntervalMs =
         doc["etaRemainingSwitchIntervalMs"] | loaded.etaRemainingSwitchIntervalMs;
 
+    loaded.wifiTxPowerQuarterDbm =
+        doc["wifiTxPowerQuarterDbm"] | loaded.wifiTxPowerQuarterDbm;
+
     loaded.stateTraceEnabled = doc["stateTraceEnabled"] | loaded.stateTraceEnabled;
 
     loaded.touchCalibrationValid =
@@ -169,6 +175,7 @@ bool saveConfiguration(const AppConfig& config) {
     doc["weatherEntity"] = saved.weatherEntity;
     doc["weatherRefreshIntervalMs"] = saved.weatherRefreshIntervalMs;
     doc["etaRemainingSwitchIntervalMs"] = saved.etaRemainingSwitchIntervalMs;
+    doc["wifiTxPowerQuarterDbm"] = saved.wifiTxPowerQuarterDbm;
     doc["stateTraceEnabled"] = saved.stateTraceEnabled;
     doc["touchCalibrationValid"] = saved.touchCalibrationValid;
     doc["touchRawXMin"] = saved.touchRawXMin;

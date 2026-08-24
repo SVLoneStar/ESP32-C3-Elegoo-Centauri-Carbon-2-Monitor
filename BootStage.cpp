@@ -6,12 +6,79 @@
 #include <Preferences.h>
 
 namespace {
+constexpr size_t MAX_BOOT_STAGE_RECORDS = 48;
+
+struct BootStageRecord {
+    BootStage stage;
+    uint32_t uptimeMs;
+    uint32_t deltaMs;
+};
+
+struct __attribute__((packed)) PersistedBootStage {
+    uint8_t stage;
+    uint32_t uptimeMs;
+};
+
 Preferences bootStagePreferences;
 BootStage currentStage = BOOT_STAGE_NONE;
 BootStage previousStage = BOOT_STAGE_NONE;
+uint32_t currentStageUptimeMs = 0;
+uint32_t previousStageUptimeMs = 0;
+uint32_t lastStageUptimeMs = 0;
 bool persistenceAvailable = false;
 bool serialLoggingEnabled = false;
 bool traceLoggingEnabled = false;
+BootStageRecord stageRecords[MAX_BOOT_STAGE_RECORDS];
+size_t stageRecordCount = 0;
+size_t serialRecordIndex = 0;
+size_t traceRecordIndex = 0;
+
+void formatStageDetail(const BootStageRecord& record, char* destination, size_t destinationSize) {
+    snprintf(destination, destinationSize, "code=%u stage=%s uptime_ms=%lu delta_ms=%lu",
+             (unsigned int)(uint8_t)record.stage, bootStageText(record.stage),
+             (unsigned long)record.uptimeMs, (unsigned long)record.deltaMs);
+}
+
+void emitSerialRecords() {
+    while (serialRecordIndex < stageRecordCount) {
+        char detail[128];
+        formatStageDetail(stageRecords[serialRecordIndex], detail, sizeof(detail));
+        serialDiagnostic("BOOT_STAGE | %s", detail);
+        serialRecordIndex++;
+    }
+}
+
+void emitTraceRecords() {
+    while (traceRecordIndex < stageRecordCount) {
+        char detail[128];
+        formatStageDetail(stageRecords[traceRecordIndex], detail, sizeof(detail));
+        stateTraceLog("BOOT_STAGE", detail);
+        traceRecordIndex++;
+    }
+}
+
+void recordBootStage(BootStage stage, uint32_t uptimeMs) {
+    if (stage == currentStage)
+        return;
+
+    BootStageRecord record = {stage, uptimeMs, uptimeMs - lastStageUptimeMs};
+    currentStage = stage;
+    currentStageUptimeMs = uptimeMs;
+    lastStageUptimeMs = uptimeMs;
+
+    if (stageRecordCount < MAX_BOOT_STAGE_RECORDS)
+        stageRecords[stageRecordCount++] = record;
+
+    if (persistenceAvailable) {
+        PersistedBootStage persisted = {(uint8_t)stage, uptimeMs};
+        bootStagePreferences.putBytes("record", &persisted, sizeof(persisted));
+    }
+
+    if (serialLoggingEnabled)
+        emitSerialRecords();
+    if (traceLoggingEnabled)
+        emitTraceRecords();
+}
 }
 
 const char* bootStageText(BootStage stage) {
@@ -50,40 +117,53 @@ const char* bootStageText(BootStage stage) {
     case BOOT_STAGE_MDNS_READY: return "MDNS_READY";
     case BOOT_STAGE_MDNS_FAILED: return "MDNS_FAILED";
     case BOOT_STAGE_SETUP_COMPLETE: return "SETUP_COMPLETE";
+    case BOOT_STAGE_SETUP_ENTERED: return "SETUP_ENTERED";
+    case BOOT_STAGE_TRACKING_READY: return "BOOT_TRACKING_READY";
+    case BOOT_STAGE_STATE_TRACE_BEGIN: return "STATE_TRACE_BEGIN";
+    case BOOT_STAGE_WIFI_MANAGER_COMPLETE: return "WIFI_MANAGER_COMPLETE";
     default: return "NONE";
     }
 }
 
-void initializeBootStageTracking() {
+void initializeBootStageTracking(unsigned long setupEnteredAt) {
     persistenceAvailable = bootStagePreferences.begin("boot-stage", false);
-    if (persistenceAvailable)
-        previousStage = (BootStage)bootStagePreferences.getUChar("stage", BOOT_STAGE_NONE);
+    if (persistenceAvailable) {
+        PersistedBootStage persisted = {};
+        if (bootStagePreferences.getBytesLength("record") == sizeof(persisted)) {
+            bootStagePreferences.getBytes("record", &persisted, sizeof(persisted));
+            previousStage = (BootStage)persisted.stage;
+            previousStageUptimeMs = persisted.uptimeMs;
+        } else {
+            previousStage =
+                (BootStage)bootStagePreferences.getUChar("stage", BOOT_STAGE_NONE);
+            previousStageUptimeMs = bootStagePreferences.getUInt("uptime", 0);
+        }
+    }
+
+    recordBootStage(BOOT_STAGE_SETUP_ENTERED, setupEnteredAt);
+    recordBootStage(BOOT_STAGE_TRACKING_READY, millis());
 }
 
 void enableBootStageSerialLogging() {
     serialLoggingEnabled = true;
+    serialDiagnostic("BOOT_STAGE_PREVIOUS | code=%u stage=%s uptime_ms=%lu",
+                     (unsigned int)(uint8_t)previousStage, bootStageText(previousStage),
+                     (unsigned long)previousStageUptimeMs);
+    emitSerialRecords();
 }
 
 void enableBootStageTraceLogging() {
     traceLoggingEnabled = true;
+    char detail[128];
+    snprintf(detail, sizeof(detail), "code=%u stage=%s uptime_ms=%lu",
+             (unsigned int)(uint8_t)previousStage, bootStageText(previousStage),
+             (unsigned long)previousStageUptimeMs);
+    stateTraceLog("BOOT_STAGE_PREVIOUS", detail);
+    emitTraceRecords();
 }
 
 void markBootStage(BootStage stage) {
-    if (stage == currentStage)
-        return;
-
-    currentStage = stage;
-    const char* label = bootStageText(stage);
-
-    if (persistenceAvailable)
-        bootStagePreferences.putUChar("stage", (uint8_t)stage);
-
-    if (serialLoggingEnabled) {
-        serialDiagnostic("BOOT_STAGE | %u | %s", (unsigned int)(uint8_t)stage, label);
-    }
-
-    if (traceLoggingEnabled)
-        stateTraceLog("BOOT_STAGE", label);
+    recordBootStage(stage, millis());
 }
 
 BootStage getCurrentBootStage() {
@@ -92,6 +172,14 @@ BootStage getCurrentBootStage() {
 
 BootStage getPreviousBootStage() {
     return previousStage;
+}
+
+uint32_t getCurrentBootStageUptimeMs() {
+    return currentStageUptimeMs;
+}
+
+uint32_t getPreviousBootStageUptimeMs() {
+    return previousStageUptimeMs;
 }
 
 bool isBootStagePersistenceAvailable() {
