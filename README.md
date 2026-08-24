@@ -149,7 +149,7 @@ Huge APP has no OTA slot. Upload firmware through the normal Arduino IDE USB/ser
 
 **USB CDC On Boot: Disabled** is the hardware-tested configuration for this project. Ten consecutive normal hardware boot tests completed successfully with reliable WiFi and Home Assistant connections, without requiring UniFi AP locking.
 
-Enabling USB CDC On Boot maps `Serial` to HWCDC/native USB on the ESP32-C3. CDC-enabled builds showed startup and network reliability problems in testing when the device was attached to a PC USB host. With CDC disabled, normal standalone boots were reliable and project Serial logging uses UART0, so it is not available through the ESP32-C3 native USB Serial Monitor in the same way. The ESP32-C3 ROM may still emit limited boot information through the USB path; disabling CDC does not imply that every form of USB output disappears.
+Enabling USB CDC On Boot maps `Serial` to HWCDC/native USB on the ESP32-C3, making project Serial output available in Arduino IDE Serial Monitor through the native USB connection. CDC-enabled builds showed unreliable normal startup and network behavior in testing when the device was attached to a PC USB host. With CDC disabled, normal standalone boots were reliable and project Serial logging uses UART0; project Serial output is therefore not available in Arduino IDE Serial Monitor through the native USB connection. The ESP32-C3 ROM may still emit limited boot information through the USB path, so disabling CDC does not imply that every form of USB output disappears.
 
 For Arduino CLI, select the disabled setting explicitly with `CDCOnBoot=default`—the option name used by ESP32 Arduino core 3.3.11 for the menu value **Disabled**. The alternative `CDCOnBoot=cdc` selects **Enabled**. The canonical build FQBN is:
 
@@ -343,7 +343,7 @@ Development followed an iterative cycle: Idea → architecture → implementatio
 - Home Assistant and compatible entities from the Elegoo integration are required; there is no direct printer connection.
 - Huge APP has no OTA slot, so firmware upload is USB/serial only.
 - Arduino IDE has no reliable project-local pre-build hook for generating Git metadata. Run `tools/build_prep.ps1` manually if Git revision metadata is desired; it is not required to compile the firmware. Without `GeneratedVersion.h`, the existing fallback in `Version.h` is used.
-- Development/debugging only: closing Arduino IDE can cause an ESP32-C3 reset reported by firmware diagnostics as `USB (11)`. A boot triggered specifically by this IDE/USB reset may connect to WiFi without subsequently connecting to Home Assistant. This accepted development-environment edge case is not representative of normal standalone runtime behavior.
+- Development/debugging only: closing Arduino IDE can cause an ESP32-C3 reset reported by firmware diagnostics as `USB (11)` with either USB CDC setting. After this IDE-induced reset, a CDC-enabled build may hang. With the canonical CDC-disabled build, the device boots and connects to WiFi, but the Home Assistant connection may fail. This accepted development-environment edge case is not representative of normal standalone runtime behavior.
 - Printer entity suffixes are fixed; the shared printer prefix and weather entity are configurable.
 - HA traffic uses unencrypted `http://` and `ws://`; deploy only on a trusted network unless transport security is added.
 - Touch interaction is intentionally limited to calibration and the read-only TFT diagnostics page; gestures and printer-control actions are not implemented.
