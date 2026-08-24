@@ -181,7 +181,7 @@ The Web UI never displays the stored token back in plaintext. The password field
 
 1. Install the board package and required libraries.
 2. Select the required Arduino IDE settings above.
-3. Run `powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` from the project root.
+3. Optional: Run `powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` from the project root before compiling to include the current Git revision in the firmware identifier. The firmware also builds without this step.
 4. Compile and upload `ESP32_C3_ILI9341_Elegoo_Monitor.ino`.
 5. The ESP32-C3 first attempts to use WiFi credentials already stored by its WiFi subsystem.
 6. If startup connection fails, join **Elegoo-Monitor-Setup** and use its WiFi-only captive portal.
@@ -298,39 +298,11 @@ Lines use synchronized local time when available, otherwise `UPTIME_MS=<value>`.
 
 Use **Maintenance → Temporary state trace diagnostics** to see its size, download `state_trace.log`, or clear it after confirmation. The server exposes only this fixed trace path, not arbitrary filesystem files.
 
-## Firmware versioning
+## Development
 
-The semantic firmware version remains manually maintained in `Version.h`:
+The original project idea, requirements, hardware setup, hardware testing, and design decisions came from SVLoneStar. ChatGPT was used for software architecture, feature design, debugging strategy, code review, and coordination of implementation work. OpenAI Codex worked directly on the repository to implement and refactor code, compile builds, perform repository checks, and verify changes.
 
-```cpp
-#define FIRMWARE_VERSION "0.1.0-dev"
-```
-
-Git metadata is generated from the repository into the ignored `GeneratedVersion.h` file. Before
-every Arduino IDE compilation, run:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1
-```
-
-The script uses `git rev-parse --short HEAD`, `git status --porcelain`, and the current local branch.
-It writes only the short revision, dirty flag, and branch—never repository paths, remote URLs,
-usernames, or credentials. A dirty tree appends `+` to the displayed revision; a clean tree omits it.
-Compiler date/time continues to use `__DATE__` and `__TIME__`.
-
-Arduino IDE has no reliable project-local pre-build hook, so the prep command is an explicit build
-step. Codex builds must run `tools/build_prep.ps1` automatically immediately before invoking Arduino
-CLI. If `GeneratedVersion.h` is absent, compilation still succeeds and displays `unknown`; it never
-falls back to a stale hard-coded revision.
-
-Before a tested baseline:
-
-1. Generate metadata and test the dirty build on hardware.
-2. Commit the tested source changes.
-3. Run `tools/build_prep.ps1` again so the new clean commit and state are embedded.
-4. Compile and flash again, verify both displayed identifiers, then tag.
-
-Suggested versions: `MAJOR.MINOR.PATCH` for stable, `MAJOR.MINOR.PATCH-dev` for development, and `MAJOR.MINOR.PATCH-test.N` for test builds.
+Development followed an iterative cycle: Idea → architecture → implementation → compile → flash → hardware test → diagnostics → refinement. The resulting project is maintained and hardware-tested by SVLoneStar. The firmware reflects this collaborative process rather than being independently authored entirely by either the human or AI participants.
 
 ## Project structure
 
@@ -357,7 +329,7 @@ Suggested versions: `MAJOR.MINOR.PATCH` for stable, `MAJOR.MINOR.PATCH-dev` for 
 
 - Home Assistant and compatible entities from the Elegoo integration are required; there is no direct printer connection.
 - Huge APP has no OTA slot, so firmware upload is USB/serial only.
-- Arduino IDE requires an explicit `tools/build_prep.ps1` step before compiling Git metadata.
+- Arduino IDE has no reliable project-local pre-build hook for generating Git metadata. Run `tools/build_prep.ps1` manually if Git revision metadata is desired; it is not required to compile the firmware. Without `GeneratedVersion.h`, the existing fallback in `Version.h` is used.
 - Printer entity suffixes are fixed; the shared printer prefix and weather entity are configurable.
 - HA traffic uses unencrypted `http://` and `ws://`; deploy only on a trusted network unless transport security is added.
 - Touch interaction is intentionally limited to calibration and the read-only TFT diagnostics page; gestures and printer-control actions are not implemented.

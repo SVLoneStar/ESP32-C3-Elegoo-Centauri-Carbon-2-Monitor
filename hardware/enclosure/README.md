@@ -10,7 +10,7 @@ The project adaptation includes:
 - a USB cut-out;
 - an ESP32-C3 mounting solution.
 
-The desktop holder/platform was already part of DorffMeister's original design and is not a modification made by this project.
+The desktop stand/platform was already part of DorffMeister's original design and is not a modification made by this project.
 
 ## Included files
 
@@ -18,8 +18,8 @@ The desktop holder/platform was already part of DorffMeister's original design a
 |---|---|
 | [`Body.stl`](Body.stl) | Main enclosure body |
 | [`Improved-Lid.stl`](Improved-Lid.stl) | Revised enclosure lid/front bezel |
-| [`Holder.stl`](Holder.stl) | Desktop holder |
-| [`Platform.stl`](Platform.stl) | Platform component used with the enclosure/holder assembly |
+| [`Holder.stl`](Holder.stl) | Small internal plastic part that secures the ESP32-C3 inside the enclosure |
+| [`Platform.stl`](Platform.stl) | Desktop stand/platform |
 
 ## Attribution and enclosure license
 
