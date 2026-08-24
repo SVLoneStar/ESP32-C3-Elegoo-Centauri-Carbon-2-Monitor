@@ -1,6 +1,7 @@
 #include "Weather.h"
 #include "Config.h"
 #include "Diagnostics.h"
+#include "Display.h"
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -429,19 +430,27 @@ void drawColumnHeading(const char* heading, int centerX) {
     tft.print(heading);
 }
 
-void drawTemperatureText(const String& text, int centerX) {
+void drawTemperatureText(const String& text, int centerX, bool showUnit = false) {
     tft.setFont(&FreeSansBold9pt7b);
     tft.setTextColor(C_TEXT);
+
+    String renderedText = showUnit ? text + " C" : text;
 
     int16_t x1;
     int16_t y1;
     uint16_t width;
     uint16_t height;
 
-    tft.getTextBounds(text, 0, 153, &x1, &y1, &width, &height);
+    tft.getTextBounds(renderedText, 0, 153, &x1, &y1, &width, &height);
 
     tft.setCursor(centerX - width / 2, 153);
     tft.print(text);
+
+    if (showUnit) {
+        int16_t degreeX = tft.getCursorX() + 2;
+        tft.print(" C");
+        drawDegreeSymbol(degreeX, 153, C_TEXT);
+    }
 }
 } // namespace
 
@@ -515,11 +524,7 @@ void drawWeatherFields() {
 
         String currentTemperature = String((int)round(shown.currentTemperature));
 
-        currentTemperature += (char)247;
-
-        currentTemperature += "C";
-
-        drawTemperatureText(currentTemperature, centers[0]);
+        drawTemperatureText(currentTemperature, centers[0], true);
     } else {
         drawTemperatureText("--", centers[0]);
     }
@@ -537,10 +542,7 @@ void drawWeatherFields() {
         temperatures += "/";
         temperatures += String((int)round(shown.forecast[i].lowTemperature));
 
-        temperatures += (char)247;
-        temperatures += "C";
-
-        drawTemperatureText(temperatures, centers[i + 1]);
+        drawTemperatureText(temperatures, centers[i + 1], true);
     }
 
     lastDrawnWeatherRevision = shown.revision;

@@ -24,6 +24,7 @@ void updateIdleLargeClock();
 void updateIdleConnection();
 void updateIdleDiagnostics();
 void drawOnDeviceDiagnostics();
+void drawDegreeSymbol(int16_t centerX, int16_t baselineY, uint16_t color);
 void drawBootProgressScreen();
 void updateBootWiFiStatus(const char* status);
 void updateBootHomeAssistantStatus(const char* status);

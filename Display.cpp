@@ -84,6 +84,10 @@ void drawDiagnosticsTextLine(const String& text, int baselineY, uint16_t color =
     tft.print(text);
 }
 
+void drawDegreeSymbol(int16_t centerX, int16_t baselineY, uint16_t color) {
+    tft.drawCircle(centerX, baselineY - 12, 2, color);
+}
+
 void drawOnDeviceDiagnostics() {
     tft.fillScreen(C_BG);
     drawCenteredText(FIRMWARE_IDENTIFIER, 23, &FreeSansBold9pt7b, C_CYAN);
@@ -582,9 +586,10 @@ void drawTemperatureField(int x, int iconType, float value, uint16_t color) {
 
     tft.setTextColor(C_GREY);
 
-    tft.print((char)247);
-
+    int16_t degreeX = tft.getCursorX() + 2;
+    tft.setCursor(tft.getCursorX() + 6, 231);
     tft.print("C");
+    drawDegreeSymbol(degreeX, 231, C_GREY);
 }
 
 // ============================================================
