@@ -23,6 +23,7 @@
 #include "TouchInput.h"
 #include "BootStage.h"
 #include "SerialLog.h"
+#include "DisplaySleep.h"
 
 // SETUP
 // ============================================================
@@ -191,6 +192,7 @@ void setup() {
     fullRedrawNeeded = true;
     markBootStage(BOOT_STAGE_SETUP_COMPLETE);
     finishBootProgressScreen();
+    initializeDisplaySleep();
 }
 
 // ============================================================
@@ -223,6 +225,10 @@ void loop() {
     callStarted = millis();
     maintainTouchInput();
     recordBlockingCall("maintainTouchInput", millis() - callStarted);
+
+    callStarted = millis();
+    maintainDisplaySleep();
+    recordBlockingCall("maintainDisplaySleep", millis() - callStarted);
 
     callStarted = millis();
     maintainTouchNavigation();

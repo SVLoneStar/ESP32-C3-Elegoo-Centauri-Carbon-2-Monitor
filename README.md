@@ -20,6 +20,7 @@ The monitor presents a dedicated printing view, pause and completion views, and 
 - Successful completion screen with completion time and last valid layer information, displayed for 60 seconds
 - Cancellation through explicit `stopped` status rather than progress-based inference
 - Idle dashboard with long date, HA status, boot/uptime diagnostics, current weather, and forecasts for the next two days
+- Configurable idle-only screen sleep that blanks the TFT after 5, 10, 15, 30, or 60 minutes; disabled is also available
 - Weather icons drawn with Adafruit GFX primitives—no bitmap assets or Unicode weather glyphs
 - Persistent, versioned JSON application configuration in LittleFS
 - WiFiManager captive portal for initial WiFi setup and deliberate credential recovery
@@ -231,9 +232,16 @@ The lightweight HTTP server listens on port 80 and publishes an mDNS HTTP servic
 - printer entity prefix
 - weather entity and refresh interval
 - ETA/remaining-time switch interval
+- idle screen-sleep timeout (disabled, 5, 10, 15, 30, or 60 minutes; default 15 minutes)
 - StateTrace logging enabled/disabled
 
 Configuration is stored as versioned JSON in `/config.json` on LittleFS. Saved changes take effect after restart. Weather refresh values outside 1 minute–24 hours and ETA switch values outside 1–60 seconds fall back to compiled defaults.
+
+### Idle screen sleep
+
+The configurable screen-sleep mode applies only while the resolved printer state is **IDLE**. After the selected idle period, the firmware blanks the TFT to black without changing the backlight wiring or putting the ILI9341 controller into hardware sleep. Printer monitoring, Home Assistant and WiFi recovery, weather updates, timekeeping, touch polling, the Web UI, StateTrace, and diagnostics continue normally.
+
+A valid calibrated touch wakes the screen and is consumed only as a wake action. Printer activity also wakes it immediately. The diagnostics view never sleeps; returning from diagnostics to an idle screen starts a fresh idle timer. Printing, paused, error, and 60-second print-complete screens are never auto-blanked. Touch cannot wake a sleeping display when calibration is invalid because no reliable screen mapping is available.
 
 ### Diagnostics
 
@@ -327,6 +335,7 @@ Development followed an iterative cycle: Idea → architecture → implementatio
 | `ConfigStore.h/.cpp` | LittleFS JSON load/save/clear |
 | `Diagnostics.h/.cpp` | Boot counter, reset reason, uptime, and Serial diagnostics |
 | `Display.h/.cpp` | General TFT layouts and dirty-region rendering |
+| `DisplaySleep.h/.cpp` | Independent idle-only TFT blanking, wake handling, and timeout state |
 | `BootStage.h/.cpp` | Persisted startup-stage tracking and startup timing diagnostics |
 | `HomeAssistant.h/.cpp` | Asynchronous printer REST load, WiFi provisioning/recovery, WebSocket authentication/subscription/recovery |
 | `PrinterData.h/.cpp` | Entity parsing, state machine, terminal latching, layer snapshots, and formatting |

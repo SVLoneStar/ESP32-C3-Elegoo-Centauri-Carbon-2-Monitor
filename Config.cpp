@@ -45,6 +45,8 @@ void setConfigDefaults(AppConfig& config) {
 
     config.etaRemainingSwitchIntervalMs = 5000UL;
 
+    config.displaySleepTimeoutMinutes = DISPLAY_SLEEP_DEFAULT_MINUTES;
+
     config.wifiTxPowerQuarterDbm = WIFI_TX_POWER_DEFAULT;
 
     config.stateTraceEnabled = true;
@@ -103,4 +105,15 @@ String wifiTxPowerText(int16_t value) {
     int remainder = abs(value) % 4;
     unsigned int decimals = remainder == 0 ? 0 : remainder == 2 ? 1 : 2;
     return String((float)value / 4.0f, decimals) + " dBm";
+}
+
+bool isSupportedDisplaySleepTimeout(uint16_t minutes) {
+    return minutes == 0 || minutes == 5 || minutes == 10 || minutes == 15 || minutes == 30 ||
+           minutes == 60;
+}
+
+String displaySleepTimeoutText(uint16_t minutes) {
+    if (minutes == 0)
+        return "Disabled";
+    return String(minutes) + " minutes";
 }

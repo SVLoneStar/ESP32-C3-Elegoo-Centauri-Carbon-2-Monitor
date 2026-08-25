@@ -387,6 +387,13 @@ bool consumeTouchTap(TouchTap& tap) {
     return true;
 }
 
+bool peekTouchTap(TouchTap& tap) {
+    if (!tapPending)
+        return false;
+    tap = pendingTap;
+    return true;
+}
+
 bool touchCalibrationValid() {
     return appConfig.touchCalibrationValid;
 }

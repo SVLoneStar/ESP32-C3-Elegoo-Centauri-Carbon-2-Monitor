@@ -11,6 +11,7 @@
 #include "Weather.h"
 #include "BootStage.h"
 #include "TouchInput.h"
+#include "DisplaySleep.h"
 
 #include <ESPmDNS.h>
 #include <freertos/FreeRTOS.h>
@@ -225,6 +226,8 @@ void writeStatusJson(WiFiClient& client) {
               appConfig.touchSwapAxes ? "SWAPPED" : "NORMAL", first);
     jsonField(client, "touchInvertX", appConfig.touchInvertX ? "YES" : "NO", first);
     jsonField(client, "touchInvertY", appConfig.touchInvertY ? "YES" : "NO", first);
+    jsonField(client, "displaySleepState", displaySleepStateText(), first);
+    jsonField(client, "displaySleepTimeout", configuredDisplaySleepTimeoutText(), first);
     client.print('}');
 }
 
@@ -329,6 +332,11 @@ void showDiagnostics(WiFiClient& client) {
               "loopOver1Second");
     statusRow(client, "Loops over 5 seconds", String(getLoopOver5SecondsCount()), "",
               "loopOver5Seconds");
+    client.print(F("</table></section>"));
+    diagnosticSection(client, "Display");
+    statusRow(client, "Idle screen sleep", displaySleepStateText(), "", "displaySleepState");
+    statusRow(client, "Configured timeout", configuredDisplaySleepTimeoutText(), "",
+              "displaySleepTimeout");
     client.print(F("</table></section>"));
     diagnosticSection(client, "Touch");
     statusRow(client, "Touch detected", touchDetected() ? "INITIALIZED" : "NOT INITIALIZED", "",
@@ -461,6 +469,28 @@ void wifiTxPowerSelect(WiFiClient& client) {
     client.print(F("</select></label>"));
 }
 
+void displaySleepSelect(WiFiClient& client) {
+    static const uint16_t options[] = {0, 5, 10, 15, 30, 60};
+    client.print(F("<label>Idle screen sleep<select name='displaySleepMinutes'>"));
+    for (size_t i = 0; i < sizeof(options) / sizeof(options[0]); i++) {
+        uint16_t minutes = options[i];
+        client.print(F("<option value='"));
+        client.print(minutes);
+        client.print('\'');
+        if (appConfig.displaySleepTimeoutMinutes == minutes)
+            client.print(F(" selected"));
+        client.print('>');
+        if (minutes == 0) {
+            client.print(F("Disabled"));
+        } else {
+            client.print(minutes);
+            client.print(F(" minutes"));
+        }
+        client.print(F("</option>"));
+    }
+    client.print(F("</select></label>"));
+}
+
 void showConfiguration(WiFiClient& client) {
     sendHeader(client, 200, "OK");
     pageStart(client, "Configuration");
@@ -469,7 +499,7 @@ void showConfiguration(WiFiClient& client) {
     client.print(F("<h2>WiFi / network</h2>"));
     input(client, "Device / mDNS name", "deviceName", appConfig.deviceName);
     wifiTxPowerSelect(client);
-    client.print(F("<h2>Home Assistant and display</h2>"));
+    client.print(F("<h2>Home Assistant</h2>"));
     input(client, "Home Assistant host or IP", "haHost", appConfig.homeAssistantHost);
     input(client, "Home Assistant port", "haPort", String(appConfig.homeAssistantPort), "number");
     input(client, "Home Assistant long-lived access token (leave empty to preserve)", "haToken", "",
@@ -481,6 +511,8 @@ void showConfiguration(WiFiClient& client) {
           String(appConfig.weatherRefreshIntervalMs / 60000UL), "number");
     input(client, "ETA / Remaining switch interval (seconds)", "etaSeconds",
           String(appConfig.etaRemainingSwitchIntervalMs / 1000UL), "number");
+    client.print(F("<h2>Display</h2>"));
+    displaySleepSelect(client);
     stateTraceSelect(client);
 
     client.print(F("<button type='submit'>Save configuration</button></form>"
@@ -586,6 +618,15 @@ void saveConfigurationForm(WiFiClient& client, const String& body) {
     long etaSeconds = formValue(body, "etaSeconds").toInt();
     if (etaSeconds >= 1 && etaSeconds <= 60)
         pending.etaRemainingSwitchIntervalMs = (uint32_t)etaSeconds * 1000UL;
+
+    String displaySleepValue = formValue(body, "displaySleepMinutes");
+    if (displaySleepValue.length() > 0) {
+        long displaySleepMinutes = displaySleepValue.toInt();
+        if (displaySleepMinutes >= 0 && displaySleepMinutes <= UINT16_MAX &&
+            isSupportedDisplaySleepTimeout((uint16_t)displaySleepMinutes)) {
+            pending.displaySleepTimeoutMinutes = (uint16_t)displaySleepMinutes;
+        }
+    }
 
     bool saved = saveConfiguration(pending);
 

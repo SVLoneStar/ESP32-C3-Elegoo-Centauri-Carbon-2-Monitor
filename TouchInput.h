@@ -16,6 +16,7 @@ void initializeTouchInput();
 void maintainTouchInput();
 void maintainTouchNavigation();
 bool consumeTouchTap(TouchTap& tap);
+bool peekTouchTap(TouchTap& tap);
 bool touchCalibrationValid();
 bool touchDetected();
 bool touchCalibrationActive();

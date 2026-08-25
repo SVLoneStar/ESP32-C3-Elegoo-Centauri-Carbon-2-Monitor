@@ -44,6 +44,9 @@ void sanitizeConfiguration(AppConfig& config) {
         config.etaRemainingSwitchIntervalMs = 5000UL;
     }
 
+    if (!isSupportedDisplaySleepTimeout(config.displaySleepTimeoutMinutes))
+        config.displaySleepTimeoutMinutes = DISPLAY_SLEEP_DEFAULT_MINUTES;
+
     if (!isSupportedWifiTxPower(config.wifiTxPowerQuarterDbm))
         config.wifiTxPowerQuarterDbm = WIFI_TX_POWER_DEFAULT;
 
@@ -128,6 +131,9 @@ bool loadConfiguration() {
     loaded.etaRemainingSwitchIntervalMs =
         doc["etaRemainingSwitchIntervalMs"] | loaded.etaRemainingSwitchIntervalMs;
 
+    loaded.displaySleepTimeoutMinutes =
+        doc["displaySleepTimeoutMinutes"] | loaded.displaySleepTimeoutMinutes;
+
     loaded.wifiTxPowerQuarterDbm =
         doc["wifiTxPowerQuarterDbm"] | loaded.wifiTxPowerQuarterDbm;
 
@@ -175,6 +181,7 @@ bool saveConfiguration(const AppConfig& config) {
     doc["weatherEntity"] = saved.weatherEntity;
     doc["weatherRefreshIntervalMs"] = saved.weatherRefreshIntervalMs;
     doc["etaRemainingSwitchIntervalMs"] = saved.etaRemainingSwitchIntervalMs;
+    doc["displaySleepTimeoutMinutes"] = saved.displaySleepTimeoutMinutes;
     doc["wifiTxPowerQuarterDbm"] = saved.wifiTxPowerQuarterDbm;
     doc["stateTraceEnabled"] = saved.stateTraceEnabled;
     doc["touchCalibrationValid"] = saved.touchCalibrationValid;

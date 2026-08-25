@@ -8,6 +8,7 @@
 #include "HomeAssistant.h"
 #include "BootStage.h"
 #include "TouchInput.h"
+#include "DisplaySleep.h"
 
 namespace {
 constexpr uint8_t BOOT_LINE_COUNT = 5;
@@ -724,6 +725,9 @@ void checkTimeChanges() {
 // ============================================================
 
 void updateDisplay() {
+    if (displaySleepActive())
+        return;
+
     if (touchDiagnosticsActive()) {
         if (fullRedrawNeeded) {
             drawOnDeviceDiagnostics();

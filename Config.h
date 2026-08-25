@@ -2,8 +2,9 @@
 
 #include <Arduino.h>
 
-const uint16_t CURRENT_CONFIG_VERSION = 4;
+const uint16_t CURRENT_CONFIG_VERSION = 5;
 const int16_t WIFI_TX_POWER_DEFAULT = INT16_MAX;
+const uint16_t DISPLAY_SLEEP_DEFAULT_MINUTES = 15;
 
 struct WifiTxPowerOption {
     int16_t value;
@@ -24,6 +25,7 @@ struct AppConfig {
     char weatherEntity[96];
     uint32_t weatherRefreshIntervalMs;
     uint32_t etaRemainingSwitchIntervalMs;
+    uint16_t displaySleepTimeoutMinutes;
     int16_t wifiTxPowerQuarterDbm;
     bool stateTraceEnabled;
     bool touchCalibrationValid;
@@ -43,3 +45,5 @@ bool hasValidHomeAssistantConfig(const AppConfig& config);
 bool hasValidPrinterEntityConfig(const AppConfig& config);
 bool isSupportedWifiTxPower(int16_t value);
 String wifiTxPowerText(int16_t value);
+bool isSupportedDisplaySleepTimeout(uint16_t minutes);
+String displaySleepTimeoutText(uint16_t minutes);
