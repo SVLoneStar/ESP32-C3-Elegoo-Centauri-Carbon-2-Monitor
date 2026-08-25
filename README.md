@@ -158,6 +158,12 @@ For Arduino CLI, select the disabled setting explicitly with `CDCOnBoot=default`
 esp32:esp32:esp32c3:CDCOnBoot=default,FlashSize=4M,PartitionScheme=huge_app
 ```
 
+### Firmware build identification
+
+`FIRMWARE_VERSION` remains manually maintained in `Version.h`. Git build metadata is stored in the tracked `BuildInfo.h`. Before modifying firmware/source, Codex records the current HEAD as the source base. After making the intended changes, it writes that recorded revision to `FIRMWARE_BUILD_REVISION` and sets `FIRMWARE_BUILD_DIRTY` to `1`, causing the displayed revision to include `+`.
+
+The revision explicitly means "source-base HEAD from which this development change was produced," not the hash of the commit containing `BuildInfo.h`. During development, changes based on HEAD `abc1234` therefore display `abc1234+`, and `BuildInfo.h` is committed together with those changes. It is not rewritten immediately after the commit to chase the new hash. At the start of the next firmware-development task, Codex records the then-current HEAD as the new source base. Documentation-only work does not churn firmware build metadata. A dirty value of `0` is reserved for a build with no development changes relative to its stored source base; changing only the operational metadata file does not itself make such a build dirty. Arduino IDE always reads this persistent header directly, so the normal user workflow is simply open the sketch, compile, and flash—no metadata-generation script or generated file is required.
+
 ## Home Assistant requirements
 
 Printer entities are provided by [danielcherubini/elegoo-homeassistant](https://github.com/danielcherubini/elegoo-homeassistant). This monitor consumes the Home Assistant entities created by that integration and does not communicate directly with the printer.
@@ -195,14 +201,13 @@ The Web UI never displays the stored token back in plaintext. The password field
 
 1. Install the board package and required libraries.
 2. Select the required Arduino IDE settings above.
-3. Optional: Run `powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` from the project root before compiling to include the current Git revision in the firmware identifier. The firmware also builds without this step.
-4. Compile and upload `ESP32_C3_ILI9341_Elegoo_Monitor.ino`.
-5. The ESP32-C3 first attempts to use WiFi credentials already stored by its WiFi subsystem.
-6. If startup connection fails, join **Elegoo-Monitor-Setup** and use its WiFi-only captive portal.
-7. Open the Web UI using the IP printed over Serial or the default `http://cc2-monitor.local/`. If the name was previously changed, use the configured mDNS name.
-8. In **Configuration**, enter the HA host/IP, port, LLAT, POSIX timezone, printer entity prefix, and optional weather entity.
-9. Save, restart as instructed, then use **Status** to verify printer data, authentication, subscription, and weather.
-10. Open **Diagnostics** and select **Calibrate Touch** to perform the guided TFT calibration when needed.
+3. Compile and upload `ESP32_C3_ILI9341_Elegoo_Monitor.ino`.
+4. The ESP32-C3 first attempts to use WiFi credentials already stored by its WiFi subsystem.
+5. If startup connection fails, join **Elegoo-Monitor-Setup** and use its WiFi-only captive portal.
+6. Open the Web UI using the IP printed over Serial or the default `http://cc2-monitor.local/`. If the name was previously changed, use the configured mDNS name.
+7. In **Configuration**, enter the HA host/IP, port, LLAT, POSIX timezone, printer entity prefix, and optional weather entity.
+8. Save, restart as instructed, then use **Status** to verify printer data, authentication, subscription, and weather.
+9. Open **Diagnostics** and select **Calibrate Touch** to perform the guided TFT calibration when needed.
 
 The Web UI remains independent of Home Assistant availability once WiFi is connected.
 
@@ -344,14 +349,13 @@ Development followed an iterative cycle: Idea → architecture → implementatio
 | `TouchInput.h/.cpp` | Resistive touch polling, persistent calibration, coordinate mapping, and TFT diagnostics navigation |
 | `Weather.h/.cpp` | Weather REST task, forecast cache, primitive icons, and weather-specific drawing |
 | `WebUI.h/.cpp` | HTTP status/configuration/maintenance UI, mDNS, and trace download |
-| `Version.h` | Manual semantic version, generated-metadata fallback, and identifier macros |
-| `tools/build_prep.ps1` | Generates ignored Git revision, dirty state, and branch metadata before builds |
+| `Version.h` | Manual semantic version and firmware identifier macros |
+| `BuildInfo.h` | Persistent Codex-maintained source-base revision and dirty-build state |
 
 ## Known limitations
 
 - Home Assistant and compatible entities from the Elegoo integration are required; there is no direct printer connection.
 - Huge APP has no OTA slot, so firmware upload is USB/serial only.
-- Arduino IDE has no reliable project-local pre-build hook for generating Git metadata. Run `tools/build_prep.ps1` manually if Git revision metadata is desired; it is not required to compile the firmware. Without `GeneratedVersion.h`, the existing fallback in `Version.h` is used.
 - Development/debugging only: closing Arduino IDE can cause an ESP32-C3 reset reported by firmware diagnostics as `USB (11)` with either USB CDC setting. After this IDE-induced reset, a CDC-enabled build may hang. With the canonical CDC-disabled build, the device boots and connects to WiFi, but the Home Assistant connection may fail. This accepted development-environment edge case is not representative of normal standalone runtime behavior.
 - Printer entity suffixes are fixed; the shared printer prefix and weather entity are configurable.
 - HA traffic uses unencrypted `http://` and `ws://`; deploy only on a trusted network unless transport security is added.

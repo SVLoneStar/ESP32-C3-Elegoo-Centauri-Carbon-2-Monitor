@@ -47,11 +47,32 @@ Do NOT add PlatformIO configuration files.
 
 Do NOT change the partition scheme unless explicitly requested.
 
-Before every Codex/Arduino CLI compilation, run
-`powershell -ExecutionPolicy Bypass -File tools/build_prep.ps1` to generate
-the ignored `GeneratedVersion.h` from the current Git state. Arduino IDE
-users may run the same preparation command manually when Git revision metadata
-is desired; it is not required for the firmware to compile.
+`BuildInfo.h` is the single persistent source of Git build metadata. It is a
+normal tracked file so a later Arduino IDE build reads exactly the metadata
+last prepared by Codex; Arduino IDE users do not run a preparation script.
+
+For every firmware/source development task:
+
+1. Before modifying firmware/source, record the source-base revision with
+   `git rev-parse --short HEAD`.
+2. After making the intended firmware/source changes, update `BuildInfo.h`
+   with that recorded revision as `FIRMWARE_BUILD_REVISION` and set
+   `FIRMWARE_BUILD_DIRTY` to `1`.
+3. Verify the persistent header before every Codex compile and handoff.
+4. Commit `BuildInfo.h` together with the firmware/source changes when the
+   user requests a commit.
+
+The stored revision means "source-base HEAD from which this development change
+was produced." It does not identify the commit containing `BuildInfo.h` and
+must not be refreshed immediately after that commit merely to chase the new
+hash. Such a refresh would leave a permanent metadata-only working-tree change
+and recreate the self-reference problem. At the start of the next firmware
+development task, record the then-current HEAD as the new source base and
+refresh `BuildInfo.h` as part of that task. Documentation-only work does not
+change `BuildInfo.h`. A dirty value of `0` is used only when preparing a build
+that contains no development changes relative to its stored source base; an
+update to `BuildInfo.h` alone is operational metadata and does not make that
+build dirty. Never restore a generated or ignored parallel metadata header.
 
 For every Codex/Arduino CLI build, select USB CDC On Boot explicitly rather
 than relying on remembered IDE or default state. ESP32 Arduino core 3.3.11
